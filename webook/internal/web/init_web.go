@@ -13,9 +13,11 @@ func RegisterRoutes() *gin.Engine {
 func registerUsersRoutes(server *gin.Engine) {
 	u := &UserHandler{}
 	server.POST("/users/signup", u.SignUp)
-	server.POST("/users/login", u.Login)
+	// server.POST("/users/login", u.Login)
+	server.POST("/users/login", u.LoginJWT)
 	server.POST("/users/edit", u.Edit)
-	server.GET("/users/profile", u.Profile)
+	// server.GET("/users/profile", u.Profile)
+	server.GET("/users/profile", u.ProfileJWT)
 
 	// If going RESTful style
 	// server.POST("/user", u.SignUp)   // create user / sign up
