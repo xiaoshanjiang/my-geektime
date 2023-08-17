@@ -140,7 +140,8 @@ func (u *UserHandler) LoginJWT(ctx *gin.Context) {
 		RegisteredClaims: jwt.RegisteredClaims{
 			ExpiresAt: jwt.NewNumericDate(time.Now().Add(time.Minute * 30)),
 		},
-		Uid: user.Id,
+		Uid:       user.Id,
+		UserAgent: ctx.Request.UserAgent(),
 	}
 	token := jwt.NewWithClaims(jwt.SigningMethodHS512, claims)
 	tokenStr, err := token.SignedString([]byte("95osj3fUD7fo0mlYdDbncXz4VD2igvf0"))
@@ -180,6 +181,12 @@ func (u *UserHandler) Login(ctx *gin.Context) {
 	// 我可以随便设置值了
 	// 你要放在 session 里面的值
 	sess.Set("userId", user.Id)
+	sess.Options(sessions.Options{
+		Secure:   true,
+		HttpOnly: true,
+		// 一分钟过期
+		MaxAge: 60,
+	})
 	sess.Save()
 	ctx.String(http.StatusOK, "登录成功")
 }
@@ -283,4 +290,5 @@ type UserClaims struct {
 	// 声明你自己的要放进去 token 里面的数据
 	Uid int64
 	// 自己随便加
+	UserAgent string
 }

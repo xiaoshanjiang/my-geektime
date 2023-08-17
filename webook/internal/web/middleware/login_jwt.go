@@ -69,10 +69,16 @@ func (l *LoginJWTMiddlewareBuilder) Build() gin.HandlerFunc {
 			ctx.AbortWithStatus(http.StatusUnauthorized)
 			return
 		}
+		if claims.UserAgent != ctx.Request.UserAgent() {
+			// 严重的安全问题
+			// 你是要监控
+			ctx.AbortWithStatus(http.StatusUnauthorized)
+			return
+		}
 
 		now := time.Now()
-		// 每十秒钟刷新一次
-		if claims.ExpiresAt.Sub(now) < time.Second*10 {
+		// 每50秒钟刷新一次
+		if claims.ExpiresAt.Sub(now) < time.Second*50 {
 			claims.ExpiresAt = jwt.NewNumericDate(time.Now().Add(time.Minute))
 			tokenStr, err = token.SignedString([]byte("95osj3fUD7fo0mlYdDbncXz4VD2igvf0"))
 			if err != nil {

@@ -1,11 +1,6 @@
 package main
 
 import (
-	"GeekTime/my-geektime/webook/internal/repository"
-	"GeekTime/my-geektime/webook/internal/repository/dao"
-	"GeekTime/my-geektime/webook/internal/service"
-	"GeekTime/my-geektime/webook/internal/web"
-	"GeekTime/my-geektime/webook/internal/web/middleware"
 	"strings"
 	"time"
 
@@ -15,6 +10,12 @@ import (
 	"github.com/gin-gonic/gin"
 	"gorm.io/driver/mysql"
 	"gorm.io/gorm"
+
+	"GeekTime/my-geektime/webook/internal/repository"
+	"GeekTime/my-geektime/webook/internal/repository/dao"
+	"GeekTime/my-geektime/webook/internal/service"
+	"GeekTime/my-geektime/webook/internal/web"
+	"GeekTime/my-geektime/webook/internal/web/middleware"
 )
 
 func main() {
@@ -61,25 +62,35 @@ func initWebServer() *gin.Engine {
 
 	//store := memstore.NewStore([]byte("95osj3fUD7fo0mlYdDbncXz4VD2igvf0"),
 	//	[]byte("0Pf2r0wZBpXVXlQNdpwCXN4ncnlnZSc3"))
-	store, err := redis.NewStore(16,
+	store, err := redis.NewStore(
+		16,
 		"tcp", "localhost:6379", "",
-		[]byte("95osj3fUD7fo0mlYdDbncXz4VD2igvf0"), []byte("0Pf2r0wZBpXVXlQNdpwCXN4ncnlnZSc3"))
+		[]byte("95osj3fUD7fo0mlYdDbncXz4VD2igvf0"),
+		[]byte("0Pf2r0wZBpXVXlQNdpwCXN4ncnlnZSc3"),
+	)
 
 	if err != nil {
 		panic(err)
 	}
+
 	//myStore := &sqlx_store.Store{}
 
 	server.Use(sessions.Sessions("mysession", store))
 	// 步骤3
-	// server.Use(middleware.NewLoginMiddlewareBuilder().
-	// 	IgnorePaths("/users/signup").
-	// 	IgnorePaths("/users/login").Build())
-
+	//server.Use(middleware.NewLoginMiddlewareBuilder().
+	//	IgnorePaths("/users/signup").
+	//	IgnorePaths("/users/login").Build())
 	server.Use(middleware.NewLoginJWTMiddlewareBuilder().
 		IgnorePaths("/users/signup").
 		IgnorePaths("/users/login").Build())
 
+	// v1
+	//middleware.IgnorePaths = []string{"sss"}
+	//server.Use(middleware.CheckLogin())
+
+	// 不能忽略sss这条路径
+	//server1 := gin.Default()
+	//server1.Use(middleware.CheckLogin())
 	return server
 }
 
