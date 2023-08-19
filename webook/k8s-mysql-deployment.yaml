@@ -1,0 +1,43 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: webook-mysql
+  labels:
+    app: webook-mysql
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: webook-mysql
+  template:
+    metadata:
+      name: webook-mysql
+      labels:
+        app: webook-mysql
+    spec:
+      containers:
+        - name: webook-mysql
+          image: mysql:8.0
+          env:
+            - name: MYSQL_ROOT_PASSWORD # 必须对应docker-compose里的environment下设置的mysql root password的key值
+              value: root # 必须对应docker-compose里的environment下设置的mysql root password的value值
+          imagePullPolicy: IfNotPresent
+          volumeMounts:
+            - mountPath: /var/lib/mysql #  这边要对应到 mysql 的数据存储的位置, 通过 MySQL 的配置可以改这个目录
+              name: mysql-storage #  我 POD 里面有那么多 volumes，我要用哪个
+          ports:
+            - containerPort: 3306 # 对应service的targetPort
+          resources: # It is a good practice to declare resource requests and limits for both memory and cpu for each container
+            limits:
+              memory: 512Mi
+              cpu: "1"
+            requests:
+              memory: 256Mi
+              cpu: "0.2"
+      restartPolicy: Always
+
+      # 我整个 POD 有哪些volumes
+      volumes:
+        - name: mysql-storage
+          persistentVolumeClaim:
+            claimName: webook-mysql-claim
