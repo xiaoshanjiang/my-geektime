@@ -21,5 +21,6 @@ spec:
       containers:
         - name: webook # (1)
           image: xjiang91/webook:v0.0.1
+          imagePullPolicy: Always # Always pull image for development purpuse
           ports:
             - containerPort: 8080

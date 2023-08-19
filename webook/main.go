@@ -7,28 +7,31 @@ import (
 
 	"github.com/gin-contrib/cors"
 	"github.com/gin-contrib/sessions"
-	"github.com/gin-contrib/sessions/redis"
+	"github.com/gin-contrib/sessions/memstore"
+
 	"github.com/gin-gonic/gin"
+	"github.com/redis/go-redis/v9"
 	"gorm.io/driver/mysql"
 	"gorm.io/gorm"
 
+	"GeekTime/my-geektime/webook/config"
 	"GeekTime/my-geektime/webook/internal/repository"
 	"GeekTime/my-geektime/webook/internal/repository/dao"
 	"GeekTime/my-geektime/webook/internal/service"
 	"GeekTime/my-geektime/webook/internal/web"
 	"GeekTime/my-geektime/webook/internal/web/middleware"
+	"GeekTime/my-geektime/webook/pkg/ginx/middlewares/ratelimit"
 )
 
 func main() {
-	// db := initDB()
-	// server := initWebServer()
+	db := initDB()
+	server := initWebServer()
 
-	// u := initUser(db)
-	// u.RegisterRoutes(server)
+	u := initUser(db)
+	u.RegisterRoutes(server)
 
-	server := gin.Default()
 	server.GET("/hello", func(ctx *gin.Context) {
-		ctx.String(http.StatusOK, "Hello")
+		ctx.String(http.StatusOK, "Hello! Welcome to webook!")
 	})
 	server.Run(":8080")
 }
@@ -43,6 +46,11 @@ func initWebServer() *gin.Engine {
 	server.Use(func(ctx *gin.Context) {
 		println("这是第二个 middleware")
 	})
+
+	redisClient := redis.NewClient(&redis.Options{
+		Addr: config.Config.Redis.Addr,
+	})
+	server.Use(ratelimit.NewBuilder(redisClient, time.Second, 100).Build())
 
 	server.Use(cors.New(cors.Config{
 		//AllowOrigins: []string{"*"},
@@ -65,18 +73,20 @@ func initWebServer() *gin.Engine {
 	// 步骤1
 	//store := cookie.NewStore([]byte("secret"))
 
-	//store := memstore.NewStore([]byte("95osj3fUD7fo0mlYdDbncXz4VD2igvf0"),
-	//	[]byte("0Pf2r0wZBpXVXlQNdpwCXN4ncnlnZSc3"))
-	store, err := redis.NewStore(
-		16,
-		"tcp", "localhost:6379", "",
+	store := memstore.NewStore(
 		[]byte("95osj3fUD7fo0mlYdDbncXz4VD2igvf0"),
 		[]byte("0Pf2r0wZBpXVXlQNdpwCXN4ncnlnZSc3"),
 	)
+	// store, err := redis.NewStore(
+	// 	16,
+	// 	"tcp", "localhost:6379", "",
+	// 	[]byte("95osj3fUD7fo0mlYdDbncXz4VD2igvf0"),
+	// 	[]byte("0Pf2r0wZBpXVXlQNdpwCXN4ncnlnZSc3"),
+	// )
 
-	if err != nil {
-		panic(err)
-	}
+	// if err != nil {
+	// 	panic(err)
+	// }
 
 	//myStore := &sqlx_store.Store{}
 
@@ -86,6 +96,7 @@ func initWebServer() *gin.Engine {
 	//	IgnorePaths("/users/signup").
 	//	IgnorePaths("/users/login").Build())
 	server.Use(middleware.NewLoginJWTMiddlewareBuilder().
+		IgnorePaths("/hello").
 		IgnorePaths("/users/signup").
 		IgnorePaths("/users/login").Build())
 
@@ -109,7 +120,7 @@ func initUser(db *gorm.DB) *web.UserHandler {
 
 func initDB() *gorm.DB {
 	db, err := gorm.Open(mysql.New(mysql.Config{
-		DSN:                      "root:root@tcp(localhost:13316)/webook?charset=utf8mb4&parseTime=True&loc=Local",
+		DSN:                      config.Config.DB.DSN,
 		DefaultStringSize:        256,  // default size for string fields
 		DisableDatetimePrecision: true, // disable datetime precision, which not supported before MySQL 5.6
 	}), &gorm.Config{
