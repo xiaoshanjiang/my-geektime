@@ -1,0 +1,29 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: webook-redis
+  labels:
+    app: webook-redis
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: webook-redis
+  template:
+    metadata:
+      name: webook-redis
+      labels:
+        app: webook-redis
+    spec:
+      containers:
+        - name: webook-redis
+          image: redis:latest
+          imagePullPolicy: IfNotPresent
+          resources: # It is a good practice to declare resource requests and limits for both memory and cpu for each container
+            limits:
+              memory: 512Mi
+              cpu: "1"
+            requests:
+              memory: 256Mi
+              cpu: "0.2"
+      restartPolicy: Always
