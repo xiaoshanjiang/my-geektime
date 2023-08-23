@@ -1,6 +1,6 @@
 ## Using minikube for k8s if you are using a virtual environment:
 1. In a seperate terminal run `minikube start`
-2. Under the `webook` directory, run `make docker`. \
+2. Under the `webook` directory, run `make docker` \
 This will rebuild the `webook-app` binary and subsequently use it to build the docker image `xjiang91/webook`, version `v0.0.1`. Modify the image prefix in the `Dockerfile` if needed.
 3. run `docker tag $(docker images xjiang91/webook -q) xjiang91/webook:v0.0.1 && docker push xjiang91/webook:v0.0.1` \
 This will tage the image as `xjiang91/webook:v0.0.1` and push to docker hub.
