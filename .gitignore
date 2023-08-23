@@ -280,7 +280,6 @@ next-env.d.ts
 .vscode/
 
 # project binaries:
-webook
 webook-app
 webook-live
 
