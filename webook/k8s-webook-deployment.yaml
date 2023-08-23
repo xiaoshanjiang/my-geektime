@@ -23,7 +23,7 @@ spec:
           image: xjiang91/webook:v0.0.1
           imagePullPolicy: Always # Always pull image for development purpuse
           ports:
-            - containerPort: 8080
+            - containerPort: 8080 # 必须对应main.go中gin监听的端口
           resources: # It is a good practice to declare resource requests and limits for both memory and cpu for each container
             limits:
               memory: 512Mi

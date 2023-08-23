@@ -20,7 +20,7 @@ spec:
           image: redis:latest
           imagePullPolicy: IfNotPresent
           ports:
-            - containerPort: 6379
+            - containerPort: 6379 # Redis 默认端口，一般不可修改
           resources: # It is a good practice to declare resource requests and limits for both memory and cpu for each container
             limits:
               memory: 512Mi

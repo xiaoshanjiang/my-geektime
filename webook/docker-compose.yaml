@@ -10,7 +10,8 @@ services:
       #      设置初始化脚本
       - ./script/mysql/:/docker-entrypoint-initdb.d/
     ports:
-      #      注意这里我映射为了 13316 端口
+      # 13316 必须对应config/dev.go里DBConfig的端口
+      # 3306 MySQL默认端口，一般不可修改
       - "13316:3306"
 
   redis:

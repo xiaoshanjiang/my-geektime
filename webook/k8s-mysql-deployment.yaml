@@ -26,7 +26,7 @@ spec:
             - mountPath: /var/lib/mysql #  这边要对应到 mysql 的数据存储的位置, 通过 MySQL 的配置可以改这个目录
               name: mysql-storage #  我 POD 里面有那么多 volumes，我要用哪个
           ports:
-            - containerPort: 3306 # 对应service的targetPort
+            - containerPort: 3306 # MySQL 默认端口，一般不可修改
           resources: # It is a good practice to declare resource requests and limits for both memory and cpu for each container
             limits:
               memory: 512Mi

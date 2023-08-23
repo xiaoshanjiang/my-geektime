@@ -7,7 +7,7 @@ spec:
     app: webook-mysql
   ports:
     - protocol: TCP
-      port: 11309 #  供外部应用使用msql时所访问的端口
-      targetPort: 3306 #  对应deployment的containerPort
+      port: 11309 #  供外部应用使用msql时所访问的端口,  必须对应config/k8s.go里DBConfig的端口
+      targetPort: 3306 #  必须对应mysql-deployment的containerPort
       nodePort: 30002
   type: NodePort

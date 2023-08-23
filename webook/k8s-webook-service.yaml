@@ -9,5 +9,5 @@ spec:
   ports:
     - protocol: TCP
       name: http
-      port: 81
-      targetPort: 8080
+      port: 81 # 浏览器访问webook时用的端口
+      targetPort: 8080 # 必须对应webook-deployment中的containerPort
