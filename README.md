@@ -13,3 +13,14 @@ Similary, you can access the mysql service by `minikube service webook-mysql --u
 2. If the service type is `LoadBalancer`, you can also open a tunnel to the minikube cluster by running in a seperate terminal: `minikube tunnel` and keep that terminal alive, then use `kubectl get services` to check the EXTERNAL-IP and port.\
 
 For more details about `minikube`, please refer to the official documentation: https://minikube.sigs.k8s.io/docs/handbook/
+
+
+## Week3 homework:
+作业：修改已有的部署方案
+1. 将 webook 的启动端口修改 8081。
+2. 将 webook 修改为部署 2 个 Pod。
+3. 将 webook 访问 Redis 的端口修改为 6380。
+4. 将 webook 访问 MySQL 的端口修改为 3308。
+
+![Screenshot](Screenshot1.png)
+![Screenshot](Screenshot2.png)

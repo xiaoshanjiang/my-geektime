@@ -33,7 +33,7 @@ func main() {
 	server.GET("/hello", func(ctx *gin.Context) {
 		ctx.String(http.StatusOK, "Hello! Welcome to webook!")
 	})
-	server.Run(":8080")
+	server.Run(":8081")
 }
 
 func initWebServer() *gin.Engine {

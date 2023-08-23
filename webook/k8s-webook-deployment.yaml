@@ -6,7 +6,7 @@ metadata:
 # specification
 spec:
   # 副本数量
-  replicas: 3
+  replicas: 2
   selector:
     matchLabels:
       app: webook # must match (1)
@@ -23,7 +23,7 @@ spec:
           image: xjiang91/webook:v0.0.1
           imagePullPolicy: Always # Always pull image for development purpuse
           ports:
-            - containerPort: 8080
+            - containerPort: 8081
           resources: # It is a good practice to declare resource requests and limits for both memory and cpu for each container
             limits:
               memory: 512Mi
