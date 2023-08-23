@@ -279,4 +279,9 @@ next-env.d.ts
 # vscode
 .vscode/
 
+# project binaries:
+webook
+webook-app
+webook-live
+
 # End of https://www.toptal.com/developers/gitignore/api/go,macos,windows,linux,node
