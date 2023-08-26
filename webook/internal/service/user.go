@@ -10,63 +10,75 @@ import (
 	"GeekTime/my-geektime/webook/internal/repository"
 )
 
-var (
-	ErrUserDuplicateEmail    error = repository.ErrUserDuplicateEmail
-	ErrInvalidUserOrPassword error = errors.New("账号/邮箱或密码不对")
-)
+var ErrUserDuplicateEmail = repository.ErrUserDuplicate
+var ErrInvalidUserOrPassword = errors.New("邮箱或者密码不正确")
 
-type UserService struct {
-	repo *repository.UserRepository
+type UserService interface {
+	Signup(ctx context.Context, u domain.User) error
+	FindOrCreate(ctx context.Context, phone string) (domain.User, error)
+	Login(ctx context.Context, email, password string) (domain.User, error)
+	Profile(ctx context.Context, id int64) (domain.User, error)
+	// UpdateNonSensitiveInfo 更新非敏感数据
+	// 你可以在这里进一步补充究竟哪些数据会被更新
+	UpdateNonSensitiveInfo(ctx context.Context, user domain.User) error
 }
 
-func NewUserService(repo *repository.UserRepository) *UserService {
-	return &UserService{
+type userService struct {
+	repo repository.UserRepository
+}
+
+func NewUserService(repo repository.UserRepository) UserService {
+	return &userService{
 		repo: repo,
 	}
 }
-
-func (svc *UserService) Login(ctx context.Context, email, password string) (domain.User, error) {
-	// 先找用户
-	u, err := svc.repo.FindByEmail(ctx, email)
-	if err == repository.ErrUserNotFound {
-		return domain.User{}, ErrInvalidUserOrPassword
-	}
-	if err != nil {
-		return domain.User{}, err
-	}
-	// 比较密码了
-	err = bcrypt.CompareHashAndPassword([]byte(u.Password), []byte(password))
-	if err != nil {
-		// DEBUG
-		return domain.User{}, ErrInvalidUserOrPassword
-	}
-	return u, nil
+func (svc *userService) UpdateNonSensitiveInfo(ctx context.Context, user domain.User) error {
+	user.Email = ""
+	user.Phone = ""
+	user.Password = ""
+	return svc.repo.Update(ctx, user)
 }
 
-func (svc *UserService) SignUp(ctx context.Context, u domain.User) error {
-	// 你要考虑加密放在哪里的问题了
+func (svc *userService) Signup(ctx context.Context, u domain.User) error {
 	hash, err := bcrypt.GenerateFromPassword([]byte(u.Password), bcrypt.DefaultCost)
 	if err != nil {
 		return err
 	}
 	u.Password = string(hash)
-	// 然后就是，存起来
 	return svc.repo.Create(ctx, u)
 }
 
-func (svc *UserService) Edit(ctx context.Context, id int, u domain.UserEdit) error {
-	_, err := svc.repo.FindById(ctx, id)
-	if err != nil {
-		return err
+// FindOrCreate 如果手机号不存在，那么会初始化一个用户
+func (svc *userService) FindOrCreate(ctx context.Context, phone string) (domain.User, error) {
+	// 这是一种优化写法, 大部分人会命中这个分支
+	u, err := svc.repo.FindByPhone(ctx, phone)
+	if err != repository.ErrUserNotFound {
+		return u, err
 	}
-	err = svc.repo.Edit(ctx, id, u)
-	return err
+	// 要执行注册
+	err = svc.repo.Create(ctx, domain.User{
+		Phone: phone,
+	})
+	// 注册有问题，但是又不是用户手机号码冲突，说明是系统错误
+	if err != nil && err != repository.ErrUserDuplicate {
+		return domain.User{}, err
+	}
+	// 主从模式下，这里要从主库中读取，暂时我们不需要考虑
+	return svc.repo.FindByPhone(ctx, phone)
 }
 
-func (svc *UserService) Profile(ctx context.Context, id int) (domain.UserRead, error) {
-	user, err := svc.repo.FindById(ctx, id)
-	if err != nil {
-		return domain.UserRead{}, err
+func (svc *userService) Login(ctx context.Context, email string, password string) (domain.User, error) {
+	u, err := svc.repo.FindByEmail(ctx, email)
+	if err == repository.ErrUserNotFound {
+		return domain.User{}, ErrInvalidUserOrPassword
 	}
-	return user, nil
+	err = bcrypt.CompareHashAndPassword([]byte(u.Password), []byte(password))
+	if err != nil {
+		return domain.User{}, ErrInvalidUserOrPassword
+	}
+	return u, nil
+}
+
+func (svc *userService) Profile(ctx context.Context, id int64) (domain.User, error) {
+	return svc.repo.FindById(ctx, id)
 }

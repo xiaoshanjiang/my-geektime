@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/gin-contrib/cors"
+	"github.com/redis/go-redis/v9"
 
 	"github.com/gin-gonic/gin"
 	"gorm.io/driver/mysql"
@@ -13,6 +14,7 @@ import (
 
 	"GeekTime/my-geektime/webook/config"
 	"GeekTime/my-geektime/webook/internal/repository"
+	"GeekTime/my-geektime/webook/internal/repository/cache"
 	"GeekTime/my-geektime/webook/internal/repository/dao"
 	"GeekTime/my-geektime/webook/internal/service"
 	"GeekTime/my-geektime/webook/internal/web"
@@ -20,10 +22,10 @@ import (
 )
 
 func main() {
-	db := initDB()
 	server := initWebServer()
-
-	u := initUser(db)
+	db := initDB()
+	rdb := initRedis()
+	u := initUser(db, rdb)
 	u.RegisterRoutes(server)
 
 	server.GET("/hello", func(ctx *gin.Context) {
@@ -98,9 +100,10 @@ func initWebServer() *gin.Engine {
 	return server
 }
 
-func initUser(db *gorm.DB) *web.UserHandler {
-	ud := dao.NewUserDAO(db)
-	repo := repository.NewUserRepository(ud)
+func initUser(db *gorm.DB, redisCmd redis.Cmdable) *web.UserHandler {
+	ud := dao.NewGORMUserDAO(db)
+	uc := cache.NewRedisUserCache(redisCmd)
+	repo := repository.NewCachedUserRepository(ud, uc)
 	svc := service.NewUserService(repo)
 	u := web.NewUserHandler(svc)
 	return u
@@ -127,4 +130,11 @@ func initDB() *gorm.DB {
 		panic(err)
 	}
 	return db
+}
+
+func initRedis() redis.Cmdable {
+	redisClient := redis.NewClient(&redis.Options{
+		Addr: config.Config.Redis.Addr,
+	})
+	return redisClient
 }

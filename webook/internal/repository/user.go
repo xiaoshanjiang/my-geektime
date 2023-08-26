@@ -2,71 +2,137 @@ package repository
 
 import (
 	"context"
+	"database/sql"
 	"time"
 
 	"GeekTime/my-geektime/webook/internal/domain"
+	"GeekTime/my-geektime/webook/internal/repository/cache"
 	"GeekTime/my-geektime/webook/internal/repository/dao"
 )
 
-var (
-	ErrUserDuplicateEmail = dao.ErrUserDuplicateEmail
-	ErrUserNotFound       = dao.ErrUserNotFound
-)
+var ErrUserDuplicate = dao.ErrUserDuplicate
+var ErrUserNotFound = dao.ErrDataNotFound
 
-type UserRepository struct {
-	dao *dao.UserDAO
+type UserRepository interface {
+	Create(ctx context.Context, u domain.User) error
+	// Update 更新数据，只有非 0 值才会更新
+	Update(ctx context.Context, u domain.User) error
+	FindByPhone(ctx context.Context, phone string) (domain.User, error)
+	FindByEmail(ctx context.Context, email string) (domain.User, error)
+	FindById(ctx context.Context, id int64) (domain.User, error)
 }
 
-func NewUserRepository(dao *dao.UserDAO) *UserRepository {
-	return &UserRepository{
-		dao: dao,
+// CachedUserRepository 使用了缓存的 repository 实现
+type CachedUserRepository struct {
+	dao   dao.UserDAO
+	cache cache.UserCache
+}
+
+// NewCachedUserRepository 也说明了 CachedUserRepository 的特性
+// 会从缓存和数据库中去尝试获得
+func NewCachedUserRepository(d dao.UserDAO, c cache.UserCache) UserRepository {
+	return &CachedUserRepository{
+		dao:   d,
+		cache: c,
 	}
 }
 
-func (r *UserRepository) FindByEmail(ctx context.Context, email string) (domain.User, error) {
-	u, err := r.dao.FindByEmail(ctx, email)
+func (ur *CachedUserRepository) Update(ctx context.Context, u domain.User) error {
+	err := ur.dao.UpdateNonZeroFields(ctx, ur.domainToEntity(u))
 	if err != nil {
-		return domain.User{}, err
+		return err
 	}
-	return domain.User{
-		Id:        u.Id,
-		Email:     u.Email,
-		Password:  u.Password,
-		Nickname:  u.Nickname,
-		Biography: u.Biography,
-		Birthday:  time.UnixMilli(u.Birthday).UTC(),
-		Ctime:     time.UnixMilli(u.Ctime).UTC(),
-	}, nil
+	return ur.cache.Delete(ctx, u.Id)
 }
 
-func (r *UserRepository) Create(ctx context.Context, u domain.User) error {
-	return r.dao.Insert(ctx, dao.User{
-		Email:    u.Email,
+func (ur *CachedUserRepository) Create(ctx context.Context, u domain.User) error {
+	return ur.dao.Insert(ctx, dao.User{
+		Email: sql.NullString{
+			String: u.Email,
+			Valid:  u.Email != "",
+		},
+		Phone: sql.NullString{
+			String: u.Phone,
+			Valid:  u.Phone != "",
+		},
 		Password: u.Password,
 	})
 }
 
-func (r *UserRepository) Edit(ctx context.Context, id int, u domain.UserEdit) error {
-	return r.dao.Update(ctx, id, dao.User{
-		Email:     u.Email,
-		Nickname:  u.Nickname,
-		Biography: u.Biography,
-		Birthday:  u.Birthday.UnixMilli(),
-	})
+func (ur *CachedUserRepository) FindByPhone(ctx context.Context, phone string) (domain.User, error) {
+	u, err := ur.dao.FindByPhone(ctx, phone)
+	return ur.entityToDomain(u), err
 }
 
-func (r *UserRepository) FindById(ctx context.Context, id int) (domain.UserRead, error) {
-	// 先从 cache 里面找
-	// 再从 dao 里面找
-	u, err := r.dao.FindById(ctx, id)
-	if err != nil {
-		return domain.UserRead{}, err
+func (ur *CachedUserRepository) FindByEmail(ctx context.Context, email string) (domain.User, error) {
+	u, err := ur.dao.FindByEmail(ctx, email)
+	return ur.entityToDomain(u), err
+}
+
+func (ur *CachedUserRepository) FindById(ctx context.Context, id int64) (domain.User, error) {
+	u, err := ur.cache.Get(ctx, id)
+	if err == nil {
+		// 必然是有数据
+		return u, err
 	}
-	// 找到了回写 cache
-	return domain.UserRead{
-		Email:     u.Email,
-		Nickname:  u.Nickname,
-		Biography: u.Biography,
-		Birthday:  time.UnixMilli(u.Birthday).UTC(),
-	}, nil
+
+	// 去数据库里面加载，注意做好兜底(数据库限流)，万一 Redis 真的崩了，要保护住数据库
+	ue, err := ur.dao.FindById(ctx, id)
+	if err != nil {
+		return domain.User{}, err
+	}
+	u = ur.entityToDomain(ue)
+	// 回写缓存
+	go func() {
+		err = ur.cache.Set(ctx, u)
+		if err != nil {
+			// 打日志，做监控
+			println(err)
+		}
+	}()
+	return u, nil
+}
+
+func (ur *CachedUserRepository) domainToEntity(u domain.User) dao.User {
+	return dao.User{
+		Id: u.Id,
+		Email: sql.NullString{
+			String: u.Email,
+			Valid:  u.Email != "",
+		},
+		Phone: sql.NullString{
+			String: u.Phone,
+			Valid:  u.Phone != "",
+		},
+		Birthday: sql.NullInt64{
+			Int64: u.Birthday.UnixMilli(),
+			Valid: !u.Birthday.IsZero(),
+		},
+		Nickname: sql.NullString{
+			String: u.Nickname,
+			Valid:  u.Nickname != "",
+		},
+		AboutMe: sql.NullString{
+			String: u.AboutMe,
+			Valid:  u.AboutMe != "",
+		},
+		Password: u.Password,
+	}
+}
+
+func (ur *CachedUserRepository) entityToDomain(ue dao.User) domain.User {
+	var birthday time.Time
+	if ue.Birthday.Valid {
+		birthday = time.UnixMilli(ue.Birthday.Int64)
+	}
+	return domain.User{
+		Id:       ue.Id,
+		Email:    ue.Email.String,
+		Password: ue.Password,
+		Phone:    ue.Phone.String,
+		Nickname: ue.Nickname.String,
+		AboutMe:  ue.AboutMe.String,
+		Birthday: birthday,
+		Ctime:    time.UnixMilli(ue.Ctime),
+	}
 }
