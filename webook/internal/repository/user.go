@@ -5,9 +5,9 @@ import (
 	"database/sql"
 	"time"
 
-	"GeekTime/my-geektime/webook/internal/domain"
-	"GeekTime/my-geektime/webook/internal/repository/cache"
-	"GeekTime/my-geektime/webook/internal/repository/dao"
+	"github.com/xiaoshanjiang/my-geektime/webook/internal/domain"
+	"github.com/xiaoshanjiang/my-geektime/webook/internal/repository/cache"
+	"github.com/xiaoshanjiang/my-geektime/webook/internal/repository/dao"
 )
 
 var ErrUserDuplicate = dao.ErrUserDuplicate

@@ -6,8 +6,8 @@ import (
 
 	"golang.org/x/crypto/bcrypt"
 
-	"GeekTime/my-geektime/webook/internal/domain"
-	"GeekTime/my-geektime/webook/internal/repository"
+	"github.com/xiaoshanjiang/my-geektime/webook/internal/domain"
+	"github.com/xiaoshanjiang/my-geektime/webook/internal/repository"
 )
 
 var ErrUserDuplicateEmail = repository.ErrUserDuplicate

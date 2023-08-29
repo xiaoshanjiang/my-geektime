@@ -9,29 +9,33 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/golang-jwt/jwt/v5"
 
-	"GeekTime/my-geektime/webook/internal/domain"
-	"GeekTime/my-geektime/webook/internal/service"
+	"github.com/xiaoshanjiang/my-geektime/webook/internal/domain"
+	"github.com/xiaoshanjiang/my-geektime/webook/internal/service"
 )
 
 const (
-	emailRegexPattern    = "^\\w+([-+.]\\w+)*@\\w+([-.]\\w+)*\\.\\w+([-.]\\w+)*$"
-	passwordRegexPattern = `^(?=.*[A-Za-z])(?=.*\d)(?=.*[$@$!%*#?&])[A-Za-z\d$@$!%*#?&]{8,}$`
+	emailRegexPattern    string = "^\\w+([-+.]\\w+)*@\\w+([-.]\\w+)*\\.\\w+([-.]\\w+)*$"
+	passwordRegexPattern string = `^(?=.*[A-Za-z])(?=.*\d)(?=.*[$@$!%*#?&])[A-Za-z\d$@$!%*#?&]{8,}$`
 
-	userIdKey = "userId"
-	bizLogin  = "login"
+	userIdKey string = "userId"
+	bizLogin  string = "login"
 )
+
+var _ handler = &UserHandler{}
 
 type UserHandler struct {
 	svc              service.UserService
+	codeSvc          service.CodeService
 	emailRegexExp    *regexp.Regexp
 	passwordRegexExp *regexp.Regexp
 	// 只有在使用 JWT 的时候才有用
 	jwtKey string
 }
 
-func NewUserHandler(svc service.UserService) *UserHandler {
+func NewUserHandler(svc service.UserService, codeSvc service.CodeService) *UserHandler {
 	return &UserHandler{
 		svc:              svc,
+		codeSvc:          codeSvc,
 		emailRegexExp:    regexp.MustCompile(emailRegexPattern, regexp.None),
 		passwordRegexExp: regexp.MustCompile(passwordRegexPattern, regexp.None),
 	}
@@ -53,7 +57,69 @@ func (c *UserHandler) RegisterRoutes(server *gin.Engine) {
 	ug.POST("/edit", c.Edit)
 	//ug.GET("/profile", c.Profile)   // session 机制
 	ug.GET("/profile", c.ProfileJWT) // JWT 机制
+	ug.POST("/login_sms/code/send", c.SendSMSLoginCode)
+	ug.POST("/login_sms", c.LoginSMS)
+}
 
+func (c *UserHandler) LoginSMS(ctx *gin.Context) {
+	type Req struct {
+		Phone string `json:"phone"`
+		Code  string `json:"code"`
+	}
+	var req Req
+	if err := ctx.Bind(&req); err != nil {
+		return
+	}
+	ok, err := c.codeSvc.Verify(ctx, bizLogin, req.Phone, req.Code)
+	if err != nil {
+		ctx.JSON(http.StatusOK, Result{Code: 5, Msg: "系统异常"})
+		return
+	}
+	if !ok {
+		ctx.JSON(http.StatusOK, Result{Code: 4, Msg: "验证码错误"})
+		return
+	}
+
+	// 验证码是对的
+	// 登录或者注册用户
+	u, err := c.svc.FindOrCreate(ctx, req.Phone)
+	if err != nil {
+		ctx.JSON(http.StatusOK, Result{Code: 4, Msg: "系统错误"})
+		return
+	}
+	err = c.setJWTToken(ctx, u.Id)
+	if err != nil {
+		ctx.JSON(http.StatusOK, Result{Msg: "系统错误"})
+		return
+	}
+	ctx.JSON(http.StatusOK, Result{Msg: "登录成功"})
+}
+
+// SendSMSLoginCode 发送短信验证码
+func (c *UserHandler) SendSMSLoginCode(ctx *gin.Context) {
+	type Req struct {
+		Phone string `json:"phone"`
+	}
+	var req Req
+	if err := ctx.Bind(&req); err != nil {
+		return
+	}
+	// 你也可以用正则表达式校验是不是合法的手机号
+	if req.Phone == "" {
+		ctx.JSON(http.StatusOK, Result{Code: 4, Msg: "请输入手机号码"})
+		return
+	}
+	err := c.codeSvc.Send(ctx, bizLogin, req.Phone)
+	switch err {
+	case nil:
+		ctx.JSON(http.StatusOK, Result{Msg: "发送成功"})
+	case service.ErrCodeSendTooMany:
+		ctx.JSON(http.StatusOK, Result{Code: 4, Msg: "短信发送太频繁，请稍后再试"})
+	default:
+		ctx.JSON(http.StatusOK, Result{Code: 5, Msg: "系统错误"})
+		// 要打印日志
+		return
+	}
 }
 
 // SignUp 用户注册接口
