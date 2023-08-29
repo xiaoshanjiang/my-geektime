@@ -7,7 +7,7 @@ import router from "next/router";
 const onFinish = (values: any) => {
     axios.post("/users/login", values)
         .then((res) => {
-            if(res.status != 200) {
+            if (res.status != 200) {
                 alert(res.statusText);
                 return
             }
@@ -15,7 +15,7 @@ const onFinish = (values: any) => {
             router.push('/users/profile')
         }).catch((err) => {
             alert(err);
-    })
+        })
 };
 
 const onFinishFailed = (errorInfo: any) => {
@@ -53,8 +53,11 @@ const LoginForm: React.FC = () => (
             <Button type="primary" htmlType="submit">
                 登录
             </Button>
+            <Link href={"/users/login_sms"} >
+                &nbsp;&nbsp;手机号登录
+            </Link>
             <Link href={"/users/signup"} >
-                &nbsp;注册
+                &nbsp;&nbsp;注册
             </Link>
         </Form.Item>
     </Form>
