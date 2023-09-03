@@ -16,13 +16,14 @@ import (
 
 func InitWebServer() *gin.Engine {
 	wire.Build(
-		ioc.InitRedis, ioc.InitDB,
-
+		ioc.InitRedis, ioc.InitDB, ioc.InitBigCache,
 		// DAO 部分
 		dao.NewGORMUserDAO,
 
 		// Cache 部分
-		cache.NewRedisUserCache, cache.NewRedisCodeCache,
+		cache.NewRedisUserCache,
+		// cache.NewRedisCodeCache,
+		cache.NewMemCodeCache,
 
 		// repository 部分
 		repository.NewCachedUserRepository,

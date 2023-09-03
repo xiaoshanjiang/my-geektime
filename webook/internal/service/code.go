@@ -9,7 +9,10 @@ import (
 	"github.com/xiaoshanjiang/my-geektime/webook/internal/service/sms"
 )
 
-var ErrCodeSendTooMany = repository.ErrCodeSendTooMany
+var (
+	ErrCodeSendTooMany = repository.ErrCodeSendTooMany
+	ErrCodeInvalidated = repository.ErrCodeInvalidated
+)
 
 const codeTplId = "1877556"
 
@@ -49,7 +52,7 @@ func (c *SMSCodeService) Verify(ctx context.Context,
 	inputCode string) (bool, error) {
 	ok, err := c.repo.Verify(ctx, biz, phone, inputCode)
 	// 这里我们在 service 层面上对 Handler 屏蔽了最为特殊的错误
-	if err == repository.ErrCodeVerifyTooManyTimes {
+	if err == repository.ErrCodeVerifyTooManyTimes || err == repository.ErrCodeInvalidated {
 		// 在接入了告警之后，这边要告警
 		// 因为这意味着有人在搞你
 		return false, nil

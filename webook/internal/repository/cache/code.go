@@ -3,10 +3,17 @@ package cache
 import (
 	"context"
 	_ "embed"
+	"encoding/json"
 	"errors"
 	"fmt"
+	"time"
 
+	"github.com/allegro/bigcache"
 	"github.com/redis/go-redis/v9"
+)
+
+const (
+	tryGetLimits uint = 2
 )
 
 var (
@@ -17,6 +24,7 @@ var (
 	ErrCodeSendTooMany        = errors.New("发送验证码太频繁")
 	ErrUnknownForCode         = errors.New("发送验证码遇到未知错误")
 	ErrCodeVerifyTooManyTimes = errors.New("验证次数太多")
+	ErrCodeInvalidated        = errors.New("验证码已失效")
 )
 
 type CodeCache interface {
@@ -78,6 +86,165 @@ func (c *RedisCodeCache) Verify(ctx context.Context, biz string, phone string, i
 		return false, nil
 	}
 }
+
 func (c *RedisCodeCache) key(biz string, phone string) string {
+	return fmt.Sprintf("phone_code:%s:%s", biz, phone)
+}
+
+// BigCodeCache 基于 BigCache 的实现
+type BigCodeCache struct {
+	bCache *bigcache.BigCache
+}
+
+type bCachedCode struct {
+	Code               string `json:"code"`
+	TryGets            uint   `json:"tryGets"`
+	CreatedAtTimestamp int64  `json:"createdAtTimestamp"`
+	Invalid            bool   `json:"invalid"`
+}
+
+func NewMemCodeCache(bCache *bigcache.BigCache) CodeCache {
+	return &BigCodeCache{
+		bCache: bCache,
+	}
+}
+
+func (c *BigCodeCache) Set(ctx context.Context, biz string, phone string, code string) error {
+	bs, err := c.bCache.Get(c.key(biz, phone))
+	if err != nil {
+		if !errors.Is(err, bigcache.ErrEntryNotFound) {
+			return ErrUnknownForCode
+		}
+		// first time setting code
+		ncc := bCachedCode{
+			Code:               code,
+			TryGets:            0,
+			CreatedAtTimestamp: time.Now().UnixMilli(),
+			Invalid:            false,
+		}
+		bs, err = json.Marshal(&ncc)
+		if err != nil {
+			return ErrUnknownForCode
+		}
+		err = c.bCache.Set(c.key(biz, phone), bs)
+		if err != nil {
+			return ErrUnknownForCode
+		}
+		return nil
+	}
+
+	// code already been set before
+	var cc bCachedCode
+	err = json.Unmarshal(bs, &cc)
+	if err != nil {
+		return ErrUnknownForCode
+	}
+
+	if cc.CreatedAtTimestamp == 0 {
+		c.bCache.Delete(c.key(biz, phone))
+		return ErrUnknownForCode
+	}
+
+	if (!cc.Invalid) && (time.Since(time.UnixMilli(cc.CreatedAtTimestamp)) < time.Second*60) {
+		return ErrCodeSendTooMany
+	}
+
+	// code set before but has expired, need to reset the code
+	ucc := bCachedCode{
+		Code:               code,
+		TryGets:            0,
+		CreatedAtTimestamp: cc.CreatedAtTimestamp,
+		Invalid:            false,
+	}
+	bs, err = json.Marshal(&ucc)
+	if err != nil {
+		return ErrUnknownForCode
+	}
+	err = c.bCache.Set(c.key(biz, phone), bs)
+	return err
+}
+
+func (c *BigCodeCache) Verify(ctx context.Context, biz string, phone string, inputCode string) (bool, error) {
+
+	bs, err := c.bCache.Get(c.key(biz, phone))
+	if err != nil {
+		if !errors.Is(err, bigcache.ErrEntryNotFound) {
+			// log it
+			return false, ErrUnknownForCode
+		}
+		return false, nil
+	}
+
+	var cc bCachedCode
+	err = json.Unmarshal(bs, &cc)
+	if err != nil {
+		return false, ErrUnknownForCode
+	}
+
+	if cc.Invalid {
+		return false, ErrCodeInvalidated
+	}
+
+	if time.Since(time.UnixMilli(cc.CreatedAtTimestamp)) > time.Minute*10 {
+		// code already expired
+		cc.Invalid = true
+		bs, err = json.Marshal(cc)
+		if err != nil {
+			return false, ErrUnknownForCode
+		}
+		err = c.bCache.Set(c.key(biz, phone), bs)
+		if err != nil {
+			return false, ErrUnknownForCode
+		}
+		return false, ErrCodeInvalidated
+	}
+
+	if cc.TryGets >= tryGetLimits {
+		cc.Invalid = true
+		bs, err = json.Marshal(cc)
+		if err != nil {
+			return false, ErrUnknownForCode
+		}
+		err = c.bCache.Set(c.key(biz, phone), bs)
+		if err != nil {
+			return false, ErrUnknownForCode
+		}
+		return false, ErrCodeVerifyTooManyTimes
+	}
+
+	if cc.Code != inputCode {
+		// 验证码不对
+		ucc := bCachedCode{
+			Code:               cc.Code,
+			TryGets:            cc.TryGets + 1,
+			CreatedAtTimestamp: cc.CreatedAtTimestamp,
+			Invalid:            false,
+		}
+		bs, err = json.Marshal(&ucc)
+		if err != nil {
+			return false, ErrUnknownForCode
+		}
+		err = c.bCache.Set(c.key(biz, phone), bs)
+		if err != nil {
+			return false, ErrUnknownForCode
+		}
+		return false, nil
+	}
+
+	// success, need to invalidate the used code
+	cc.Invalid = true
+	bs, err = json.Marshal(cc)
+	if err != nil {
+		return false, ErrUnknownForCode
+	}
+	err = c.bCache.Set(c.key(biz, phone), bs)
+	if err != nil {
+		return false, ErrUnknownForCode
+	}
+
+	return true, nil
+}
+
+func (c *BigCodeCache) key(biz string, phone string) string {
 	return fmt.Sprintf("phone_code:%s:%s", biz, phone)
 }
