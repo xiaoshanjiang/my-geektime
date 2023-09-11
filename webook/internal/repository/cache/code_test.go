@@ -30,12 +30,16 @@ func TestRedisCodeCache_Set(t *testing.T) {
 			mock: func(ctrl *gomock.Controller) redis.Cmdable {
 				cmd := redismocks.NewMockCmdable(ctrl)
 				mockRes := redis.NewCmdResult(int64(0), nil)
-				cmd.EXPECT().Eval(gomock.Any(), luaSetCode,
-					gomock.Any(), gomock.Any()).
-					Return(mockRes)
+				cmd.EXPECT().Eval(
+					gomock.Any(),
+					luaSetCode,
+					[]string{"phone_code:login:15212345678"},
+					[]any{"123456"},
+				).Return(mockRes)
 				return cmd
 			},
 			ctx:   context.Background(),
+			biz:   "login",
 			phone: "15212345678",
 			code:  "123456",
 		},
@@ -44,12 +48,16 @@ func TestRedisCodeCache_Set(t *testing.T) {
 			mock: func(ctrl *gomock.Controller) redis.Cmdable {
 				cmd := redismocks.NewMockCmdable(ctrl)
 				mockRes := redis.NewCmdResult(int64(-1), nil)
-				cmd.EXPECT().Eval(gomock.Any(), luaSetCode,
-					gomock.Any(), gomock.Any()).
-					Return(mockRes)
+				cmd.EXPECT().Eval(
+					gomock.Any(),
+					luaSetCode,
+					[]string{"phone_code:login:15212345678"},
+					[]any{"123456"},
+				).Return(mockRes)
 				return cmd
 			},
 			ctx:     context.Background(),
+			biz:     "login",
 			phone:   "15212345678",
 			code:    "123456",
 			wantErr: ErrCodeSendTooMany,
@@ -59,12 +67,16 @@ func TestRedisCodeCache_Set(t *testing.T) {
 			mock: func(ctrl *gomock.Controller) redis.Cmdable {
 				cmd := redismocks.NewMockCmdable(ctrl)
 				mockRes := redis.NewCmdResult(int64(-2), nil)
-				cmd.EXPECT().Eval(gomock.Any(), luaSetCode,
-					gomock.Any(), gomock.Any()).
-					Return(mockRes)
+				cmd.EXPECT().Eval(
+					gomock.Any(),
+					luaSetCode,
+					[]string{"phone_code:login:15212345678"},
+					[]any{"123456"},
+				).Return(mockRes)
 				return cmd
 			},
 			ctx:     context.Background(),
+			biz:     "login",
 			phone:   "15212345678",
 			code:    "123456",
 			wantErr: ErrUnknownForCode,

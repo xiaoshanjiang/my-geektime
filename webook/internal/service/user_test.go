@@ -118,6 +118,8 @@ func TestPasswordEncrypt(t *testing.T) {
 	pwd := []byte("hello#world123")
 	// 加密
 	encrypted, err := bcrypt.GenerateFromPassword(pwd, bcrypt.DefaultCost)
+	require.NoError(t, err)
+
 	// 比较
 	println(string(encrypted))
 	err = bcrypt.CompareHashAndPassword(encrypted, pwd)
