@@ -18,7 +18,7 @@ type JWTLoginMiddlewareBuilder struct {
 }
 
 func NewLoginJWTMiddlewareBuilder() *JWTLoginMiddlewareBuilder {
-	s := set.NewMapSet[string](4)
+	s := set.NewMapSet[string](5)
 	s.Add("/hello")
 	s.Add("/users/signup")
 	s.Add("/users/login_sms/code/send")

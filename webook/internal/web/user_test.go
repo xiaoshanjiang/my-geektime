@@ -218,6 +218,110 @@ func TestUserHandler_SignUp(t *testing.T) {
 	}
 }
 
+func TestUserHandler_LoginJWT(t *testing.T) {
+	const loginJwtUrl = "/users/login"
+	testCases := []struct {
+		name       string
+		mock       func(ctrl *gomock.Controller) (service.UserService, service.CodeService)
+		reqBuilder func(t *testing.T) *http.Request
+		wantCode   int
+		wantBody   string
+	}{
+		{
+			name: "登录成功",
+			mock: func(ctrl *gomock.Controller) (service.UserService, service.CodeService) {
+				usersvc := svcmocks.NewMockUserService(ctrl)
+				usersvc.EXPECT().Login(gomock.Any(), "123@qq.com", "hello@world123").
+					Return(domain.User{
+						Email:    "123@qq.com",
+						Password: "hello@world123",
+					}, nil)
+
+				codesvc := svcmocks.NewMockCodeService(ctrl)
+				return usersvc, codesvc
+			},
+			reqBuilder: func(t *testing.T) *http.Request {
+				body := bytes.NewBuffer([]byte(`{
+					"email":"123@qq.com",
+					"password":"hello@world123"}`))
+				req, err := http.NewRequest(http.MethodPost, loginJwtUrl, body)
+				req.Header.Set("Content-Type", "application/json")
+				if err != nil {
+					t.Fatal(err)
+				}
+				return req
+			},
+			wantCode: 200,
+			wantBody: "登录成功",
+		},
+		{
+			name: "LoginReq绑定失败",
+			mock: func(ctrl *gomock.Controller) (service.UserService, service.CodeService) {
+				// 因为根本没有跑到 singup 那里，所以直接返回 nil 都可以
+				return nil, nil
+			},
+			reqBuilder: func(t *testing.T) *http.Request {
+				// 准备一个错误的JSON 串
+				body := bytes.NewBuffer([]byte(`{"email":"123@qq.com",}`))
+				req, err := http.NewRequest(http.MethodPost, loginJwtUrl, body)
+				req.Header.Set("Content-Type", "application/json")
+				if err != nil {
+					t.Fatal(err)
+				}
+				return req
+			},
+			wantCode: 400,
+		},
+		{
+			name: "用户名或者密码不正确",
+			mock: func(ctrl *gomock.Controller) (service.UserService, service.CodeService) {
+				usersvc := svcmocks.NewMockUserService(ctrl)
+				usersvc.EXPECT().Login(gomock.Any(), "123@qq.com", "wrongpassword").
+					Return(domain.User{}, service.ErrInvalidUserOrPassword)
+
+				codesvc := svcmocks.NewMockCodeService(ctrl)
+				return usersvc, codesvc
+			},
+			reqBuilder: func(t *testing.T) *http.Request {
+				body := bytes.NewBuffer([]byte(`{
+					"email":"123@qq.com",
+					"password":"wrongpassword"}`))
+				req, err := http.NewRequest(http.MethodPost, loginJwtUrl, body)
+				req.Header.Set("Content-Type", "application/json")
+				if err != nil {
+					t.Fatal(err)
+				}
+				return req
+			},
+			wantCode: 200,
+			wantBody: "用户名或者密码不正确，请重试",
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			ctrl := gomock.NewController(t)
+			defer ctrl.Finish()
+			usersvc, codesvc := tc.mock(ctrl)
+			// 利用 mock 来构造 UserHandler
+			hdl := NewUserHandler(usersvc, codesvc)
+
+			// 注册路由
+			server := gin.Default()
+			hdl.RegisterRoutes(server)
+			// 准备请求
+			req := tc.reqBuilder(t)
+			// 准备记录响应
+			recorder := httptest.NewRecorder()
+			// 执行
+			server.ServeHTTP(recorder, req)
+			// 断言
+			assert.Equal(t, tc.wantCode, recorder.Code)
+			assert.Equal(t, tc.wantBody, recorder.Body.String())
+		})
+	}
+}
+
 func TestMock(t *testing.T) {
 	// 先创建一个控制 mock 的控制器
 	ctrl := gomock.NewController(t)
