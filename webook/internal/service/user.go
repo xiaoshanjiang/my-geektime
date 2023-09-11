@@ -32,6 +32,7 @@ func NewUserService(repo repository.UserRepository) UserService {
 		repo: repo,
 	}
 }
+
 func (svc *userService) UpdateNonSensitiveInfo(ctx context.Context, user domain.User) error {
 	user.Email = ""
 	user.Phone = ""

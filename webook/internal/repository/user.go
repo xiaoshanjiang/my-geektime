@@ -83,13 +83,11 @@ func (ur *CachedUserRepository) FindById(ctx context.Context, id int64) (domain.
 	}
 	u = ur.entityToDomain(ue)
 	// 回写缓存
-	go func() {
-		err = ur.cache.Set(ctx, u)
-		if err != nil {
-			// 打日志，做监控
-			println(err)
-		}
-	}()
+	err = ur.cache.Set(ctx, u)
+	if err != nil {
+		// 打日志，做监控
+		println(err)
+	}
 	return u, nil
 }
 
