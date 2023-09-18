@@ -12,7 +12,6 @@ import (
 
 	"github.com/xiaoshanjiang/my-geektime/webook/internal/web"
 	"github.com/xiaoshanjiang/my-geektime/webook/internal/web/middleware"
-	"github.com/xiaoshanjiang/my-geektime/webook/pkg/ginx/middlewares/ratelimit"
 )
 
 func InitWebServer(mdls []gin.HandlerFunc, userHdl *web.UserHandler) *gin.Engine {
@@ -26,7 +25,7 @@ func InitMiddlewares(redisClient redis.Cmdable) []gin.HandlerFunc {
 	return []gin.HandlerFunc{
 		corsHandler(),
 		middleware.NewLoginJWTMiddlewareBuilder().Build(),
-		ratelimit.NewBuilder(redisClient, time.Second, 100).Build(),
+		// ratelimit.NewBuilder(redisClient, time.Second, 100).Build(),
 	}
 }
 
