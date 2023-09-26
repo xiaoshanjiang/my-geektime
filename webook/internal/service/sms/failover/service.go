@@ -7,6 +7,7 @@ import (
 	"sync/atomic"
 
 	"github.com/xiaoshanjiang/my-geektime/webook/internal/service/sms"
+	"github.com/xiaoshanjiang/my-geektime/webook/pkg/ratelimit"
 )
 
 type FailoverSMSService struct {
@@ -52,4 +53,8 @@ func (f *FailoverSMSService) SendV1(ctx context.Context, tpl string, args []stri
 		}
 	}
 	return errors.New("全部服务商都失败了")
+}
+
+func (f *FailoverSMSService) GetLimiter() ratelimit.Limiter {
+	return nil
 }

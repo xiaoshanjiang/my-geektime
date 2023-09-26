@@ -5,6 +5,7 @@ import (
 	"sync/atomic"
 
 	"github.com/xiaoshanjiang/my-geektime/webook/internal/service/sms"
+	"github.com/xiaoshanjiang/my-geektime/webook/pkg/ratelimit"
 )
 
 type TimeoutFailoverSMSService struct {
@@ -17,6 +18,10 @@ type TimeoutFailoverSMSService struct {
 	// 阈值
 	// 连续超时超过这个数字，就要切换
 	threshold int32
+}
+
+func NewTimeoutFailoverSMSService() sms.Service {
+	return &TimeoutFailoverSMSService{}
 }
 
 func (t *TimeoutFailoverSMSService) Send(ctx context.Context,
@@ -56,6 +61,6 @@ func (t *TimeoutFailoverSMSService) Send(ctx context.Context,
 	}
 }
 
-func NewTimeoutFailoverSMSService() sms.Service {
-	return &TimeoutFailoverSMSService{}
+func (t *TimeoutFailoverSMSService) GetLimiter() ratelimit.Limiter {
+	return nil
 }

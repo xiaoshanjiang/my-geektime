@@ -47,6 +47,10 @@ func (s *Service) Send(ctx context.Context, tplId string,
 	return nil
 }
 
+func (s *Service) GetLimiter() ratelimit.Limiter {
+	return nil
+}
+
 func toStringPtrSlice(src []string) []*string {
 	return slice.Map[string, *string](src, func(idx int, src string) *string {
 		return &src
