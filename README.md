@@ -13,3 +13,8 @@ Similary, you can access the mysql service by `minikube service webook-mysql --u
 2. If the service type is `LoadBalancer`, you can also open a tunnel to the minikube cluster by running in a seperate terminal: `minikube tunnel` and keep that terminal alive, then use `kubectl get services` to check the EXTERNAL-IP and port.
 
 For more details about `minikube`, please refer to the official documentation: https://minikube.sigs.k8s.io/docs/handbook/
+
+## 方案
+1. 采用circular queue储存最近N次SMS请求结果，计算成功率。如果成功率低于阈值，或者当前服务触发限流，则将短信转存到数据库，并切换当前服务商。
+2. 启动单独的goroutine进行重试，循环读取发送失败的短信，从最旧时间戳开始依次重试。如果成功则更新数据库，将短信标记为成功，如果失败则更新时间戳。
+3. 所有方法都采用读写锁（数据库交互）或者原子操作（结构体本身）以保证并发安全。
