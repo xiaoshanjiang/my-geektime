@@ -23,6 +23,8 @@ func NewLoginJWTMiddlewareBuilder() *JWTLoginMiddlewareBuilder {
 	s.Add("/users/signup")
 	s.Add("/users/login_sms/code/send")
 	s.Add("/users/login_sms")
+	s.Add("/oauth2/wechat/authurl")
+	s.Add("/oauth2/wechat/callback")
 	s.Add("/users/login")
 	return &JWTLoginMiddlewareBuilder{
 		publicPaths: s,

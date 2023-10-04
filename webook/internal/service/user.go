@@ -14,9 +14,10 @@ var ErrUserDuplicateEmail = repository.ErrUserDuplicate
 var ErrInvalidUserOrPassword = errors.New("邮箱或者密码不正确")
 
 type UserService interface {
+	Login(ctx context.Context, email, password string) (domain.User, error)
 	Signup(ctx context.Context, u domain.User) error
 	FindOrCreate(ctx context.Context, phone string) (domain.User, error)
-	Login(ctx context.Context, email, password string) (domain.User, error)
+	FindOrCreateByWechat(ctx context.Context, wechatInfo domain.WechatInfo) (domain.User, error)
 	Profile(ctx context.Context, id int64) (domain.User, error)
 	// UpdateNonSensitiveInfo 更新非敏感数据
 	// 你可以在这里进一步补充究竟哪些数据会被更新
@@ -33,11 +34,19 @@ func NewUserService(repo repository.UserRepository) UserService {
 	}
 }
 
-func (svc *userService) UpdateNonSensitiveInfo(ctx context.Context, user domain.User) error {
-	user.Email = ""
-	user.Phone = ""
-	user.Password = ""
-	return svc.repo.Update(ctx, user)
+func (svc *userService) Login(ctx context.Context, email string, password string) (domain.User, error) {
+	u, err := svc.repo.FindByEmail(ctx, email)
+	if err == repository.ErrUserNotFound {
+		return domain.User{}, ErrInvalidUserOrPassword
+	}
+	if err != nil {
+		return domain.User{}, err
+	}
+	err = bcrypt.CompareHashAndPassword([]byte(u.Password), []byte(password))
+	if err != nil {
+		return domain.User{}, ErrInvalidUserOrPassword
+	}
+	return u, nil
 }
 
 func (svc *userService) Signup(ctx context.Context, u domain.User) error {
@@ -68,21 +77,30 @@ func (svc *userService) FindOrCreate(ctx context.Context, phone string) (domain.
 	return svc.repo.FindByPhone(ctx, phone)
 }
 
-func (svc *userService) Login(ctx context.Context, email string, password string) (domain.User, error) {
-	u, err := svc.repo.FindByEmail(ctx, email)
-	if err == repository.ErrUserNotFound {
-		return domain.User{}, ErrInvalidUserOrPassword
+func (svc *userService) FindOrCreateByWechat(ctx context.Context,
+	info domain.WechatInfo) (domain.User, error) {
+	u, err := svc.repo.FindByWechat(ctx, info.OpenID)
+	if err != repository.ErrUserNotFound {
+		return u, err
 	}
-	if err != nil {
-		return domain.User{}, err
+	u = domain.User{
+		WechatInfo: info,
 	}
-	err = bcrypt.CompareHashAndPassword([]byte(u.Password), []byte(password))
-	if err != nil {
-		return domain.User{}, ErrInvalidUserOrPassword
+	err = svc.repo.Create(ctx, u)
+	if err != nil && err != repository.ErrUserDuplicate {
+		return u, err
 	}
-	return u, nil
+	// 因为这里会遇到主从延迟的问题
+	return svc.repo.FindByWechat(ctx, info.OpenID)
 }
 
 func (svc *userService) Profile(ctx context.Context, id int64) (domain.User, error) {
 	return svc.repo.FindById(ctx, id)
+}
+
+func (svc *userService) UpdateNonSensitiveInfo(ctx context.Context, user domain.User) error {
+	user.Email = ""
+	user.Phone = ""
+	user.Password = ""
+	return svc.repo.Update(ctx, user)
 }

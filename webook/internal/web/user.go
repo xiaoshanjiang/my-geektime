@@ -21,7 +21,11 @@ const (
 	bizLogin  string = "login"
 )
 
+// 确保 UserHandler 上实现了 handler 接口
 var _ handler = &UserHandler{}
+
+// 这个更优雅
+var _ handler = (*UserHandler)(nil)
 
 type UserHandler struct {
 	svc              service.UserService
@@ -30,6 +34,7 @@ type UserHandler struct {
 	passwordRegexExp *regexp.Regexp
 	// 只有在使用 JWT 的时候才有用
 	jwtKey string
+	jwtHandler
 }
 
 func NewUserHandler(svc service.UserService, codeSvc service.CodeService) *UserHandler {

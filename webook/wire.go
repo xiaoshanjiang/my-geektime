@@ -29,12 +29,15 @@ func InitWebServer() *gin.Engine {
 		repository.NewCachedCodeRepository,
 
 		// service 部分
-		ioc.InitSmsService,
+		// ioc.InitSmsService,
+		ioc.InitSmsMemoryService,
+		ioc.InitWechatService,
 		service.NewSMSCodeService,
 		service.NewUserService,
 
 		// handler 部分
 		web.NewUserHandler,
+		web.NewOAuth2WechatHandler,
 
 		// gin 的中间件
 		ioc.InitMiddlewares,

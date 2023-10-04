@@ -22,6 +22,7 @@ type UserDAO interface {
 	FindByPhone(ctx context.Context, phone string) (User, error)
 	FindByEmail(ctx context.Context, email string) (User, error)
 	FindById(ctx context.Context, id int64) (User, error)
+	FindByWechat(ctx context.Context, openID string) (User, error)
 }
 
 type GORMUserDAO struct {
@@ -32,6 +33,13 @@ func NewGORMUserDAO(db *gorm.DB) UserDAO {
 	return &GORMUserDAO{
 		db: db,
 	}
+}
+
+func (dao *GORMUserDAO) FindByWechat(ctx context.Context, openID string) (User, error) {
+	var u User
+	err := dao.db.WithContext(ctx).Where("wechat_open_id = ?", openID).First(&u).Error
+	//err := dao.db.WithContext(ctx).First(&u, "email = ?", email).Error
+	return u, err
 }
 
 func (ud *GORMUserDAO) UpdateNonZeroFields(ctx context.Context, u User) error {
@@ -98,6 +106,10 @@ type User struct {
 	// 指定是 varchar 这个类型，并且长度是 1024
 	// 因此你可以看到在 web 里面有这个校验
 	AboutMe sql.NullString `gorm:"type=varchar(1024)"`
+
+	// 微信的字段
+	WechatUnionID sql.NullString
+	WechatOpenID  sql.NullString `gorm:"unique"`
 
 	// 创建时间
 	Ctime int64

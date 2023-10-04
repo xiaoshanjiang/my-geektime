@@ -20,6 +20,7 @@ type UserRepository interface {
 	FindByPhone(ctx context.Context, phone string) (domain.User, error)
 	FindByEmail(ctx context.Context, email string) (domain.User, error)
 	FindById(ctx context.Context, id int64) (domain.User, error)
+	FindByWechat(ctx context.Context, openID string) (domain.User, error)
 }
 
 // CachedUserRepository 使用了缓存的 repository 实现
@@ -35,6 +36,14 @@ func NewCachedUserRepository(d dao.UserDAO, c cache.UserCache) UserRepository {
 		dao:   d,
 		cache: c,
 	}
+}
+
+func (r *CachedUserRepository) FindByWechat(ctx context.Context, openID string) (domain.User, error) {
+	u, err := r.dao.FindByWechat(ctx, openID)
+	if err != nil {
+		return domain.User{}, err
+	}
+	return r.entityToDomain(u), nil
 }
 
 func (ur *CachedUserRepository) Update(ctx context.Context, u domain.User) error {
@@ -102,6 +111,7 @@ func (ur *CachedUserRepository) domainToEntity(u domain.User) dao.User {
 			String: u.Phone,
 			Valid:  u.Phone != "",
 		},
+		Password: u.Password,
 		Birthday: sql.NullInt64{
 			Int64: u.Birthday.UnixMilli(),
 			Valid: !u.Birthday.IsZero(),
@@ -114,7 +124,15 @@ func (ur *CachedUserRepository) domainToEntity(u domain.User) dao.User {
 			String: u.AboutMe,
 			Valid:  u.AboutMe != "",
 		},
-		Password: u.Password,
+		WechatOpenID: sql.NullString{
+			String: u.WechatInfo.OpenID,
+			Valid:  u.WechatInfo.OpenID != "",
+		},
+		WechatUnionID: sql.NullString{
+			String: u.WechatInfo.UnionID,
+			Valid:  u.WechatInfo.UnionID != "",
+		},
+		Ctime: u.Ctime.UnixMilli(),
 	}
 }
 
@@ -131,6 +149,10 @@ func (ur *CachedUserRepository) entityToDomain(ue dao.User) domain.User {
 		Nickname: ue.Nickname.String,
 		AboutMe:  ue.AboutMe.String,
 		Birthday: birthday,
-		Ctime:    time.UnixMilli(ue.Ctime),
+		WechatInfo: domain.WechatInfo{
+			UnionID: ue.WechatUnionID.String,
+			OpenID:  ue.WechatOpenID.String,
+		},
+		Ctime: time.UnixMilli(ue.Ctime),
 	}
 }
