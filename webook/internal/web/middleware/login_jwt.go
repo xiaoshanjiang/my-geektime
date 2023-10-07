@@ -1,7 +1,6 @@
 package middleware
 
 import (
-	"log"
 	"net/http"
 	"strings"
 	"time"
@@ -83,19 +82,14 @@ func (j *JWTLoginMiddlewareBuilder) Build() gin.HandlerFunc {
 			ctx.AbortWithStatus(http.StatusUnauthorized)
 			return
 		}
-		// 每 50 秒刷新一次
-		now := time.Now()
-		if expireTime.Sub(now) < time.Second*50 {
-			uc.ExpiresAt = jwt.NewNumericDate(time.Now().Add(time.Minute))
-			newToken, err := token.SignedString(ijwt.JWTKey)
-			if err != nil {
-				// 因为刷新这个事情，并不是一定要做的，所以这里可以考虑打印日志
-				// 暂时这样打印
-				log.Println(err)
-			} else {
-				ctx.Header("x-jwt-token", newToken)
-			}
 
+		err = j.CheckSession(ctx, uc.Ssid)
+		if err != nil {
+			// 系统错误或者用户已经主动退出登录了
+			// 这里也可以考虑说，如果在 Redis 已经崩溃的时候，
+			// 就不要去校验是不是已经主动退出登录了。
+			ctx.AbortWithStatus(http.StatusUnauthorized)
+			return
 		}
 
 		// 说明 token 是合法的
