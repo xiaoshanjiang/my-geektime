@@ -6,18 +6,18 @@ import (
 	"strings"
 	"time"
 
-	"github.com/xiaoshanjiang/my-geektime/webook/internal/web"
-
 	"github.com/ecodeclub/ekit/set"
 	"github.com/gin-gonic/gin"
 	"github.com/golang-jwt/jwt/v5"
+	ijwt "github.com/xiaoshanjiang/my-geektime/webook/internal/web/jwt"
 )
 
 type JWTLoginMiddlewareBuilder struct {
 	publicPaths set.Set[string]
+	ijwt.Handler
 }
 
-func NewLoginJWTMiddlewareBuilder() *JWTLoginMiddlewareBuilder {
+func NewLoginJWTMiddlewareBuilder(jwtHdl ijwt.Handler) *JWTLoginMiddlewareBuilder {
 	s := set.NewMapSet[string](5)
 	s.Add("/hello")
 	s.Add("/users/signup")
@@ -28,6 +28,7 @@ func NewLoginJWTMiddlewareBuilder() *JWTLoginMiddlewareBuilder {
 	s.Add("/users/login")
 	return &JWTLoginMiddlewareBuilder{
 		publicPaths: s,
+		Handler:     jwtHdl,
 	}
 }
 
@@ -55,9 +56,9 @@ func (j *JWTLoginMiddlewareBuilder) Build() gin.HandlerFunc {
 		}
 
 		tokenStr := authSegments[1]
-		uc := web.UserClaims{}
+		uc := ijwt.UserClaims{}
 		token, err := jwt.ParseWithClaims(tokenStr, &uc, func(token *jwt.Token) (interface{}, error) {
-			return web.JWTKey, nil
+			return ijwt.JWTKey, nil
 		})
 		if err != nil || !token.Valid {
 			// 不正确的 token
@@ -86,7 +87,7 @@ func (j *JWTLoginMiddlewareBuilder) Build() gin.HandlerFunc {
 		now := time.Now()
 		if expireTime.Sub(now) < time.Second*50 {
 			uc.ExpiresAt = jwt.NewNumericDate(time.Now().Add(time.Minute))
-			newToken, err := token.SignedString(web.JWTKey)
+			newToken, err := token.SignedString(ijwt.JWTKey)
 			if err != nil {
 				// 因为刷新这个事情，并不是一定要做的，所以这里可以考虑打印日志
 				// 暂时这样打印

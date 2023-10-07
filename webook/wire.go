@@ -11,6 +11,7 @@ import (
 	"github.com/xiaoshanjiang/my-geektime/webook/internal/repository/dao"
 	"github.com/xiaoshanjiang/my-geektime/webook/internal/service"
 	"github.com/xiaoshanjiang/my-geektime/webook/internal/web"
+	ijwt "github.com/xiaoshanjiang/my-geektime/webook/internal/web/jwt"
 	"github.com/xiaoshanjiang/my-geektime/webook/ioc"
 )
 
@@ -40,6 +41,8 @@ func InitWebServer() *gin.Engine {
 		// handler 部分
 		web.NewUserHandler,
 		web.NewOAuth2WechatHandler,
+		ioc.NewWechatHandlerConfig,
+		ijwt.NewRedisJWTHandler,
 
 		// gin 的中间件
 		ioc.InitMiddlewares,

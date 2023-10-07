@@ -11,10 +11,12 @@ import (
 	"github.com/redis/go-redis/v9"
 
 	"github.com/xiaoshanjiang/my-geektime/webook/internal/web"
+	ijwt "github.com/xiaoshanjiang/my-geektime/webook/internal/web/jwt"
 	"github.com/xiaoshanjiang/my-geektime/webook/internal/web/middleware"
 )
 
-func InitWebServer(mdls []gin.HandlerFunc, userHdl *web.UserHandler, oauth2WechatHdl *web.OAuth2WechatHandler) *gin.Engine {
+func InitWebServer(mdls []gin.HandlerFunc, userHdl *web.UserHandler,
+	oauth2WechatHdl *web.OAuth2WechatHandler) *gin.Engine {
 	server := gin.Default()
 	server.Use(mdls...)
 	userHdl.RegisterRoutes(server)
@@ -22,10 +24,10 @@ func InitWebServer(mdls []gin.HandlerFunc, userHdl *web.UserHandler, oauth2Wecha
 	return server
 }
 
-func InitMiddlewares(redisClient redis.Cmdable) []gin.HandlerFunc {
+func InitMiddlewares(redisClient redis.Cmdable, jwtHdl ijwt.Handler) []gin.HandlerFunc {
 	return []gin.HandlerFunc{
 		corsHandler(),
-		middleware.NewLoginJWTMiddlewareBuilder().Build(),
+		middleware.NewLoginJWTMiddlewareBuilder(jwtHdl).Build(),
 		// ratelimit.NewBuilder(redisClient, time.Second, 100).Build(),
 	}
 }

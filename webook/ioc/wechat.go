@@ -4,6 +4,7 @@ import (
 	"os"
 
 	"github.com/xiaoshanjiang/my-geektime/webook/internal/service/oauth2/wechat"
+	"github.com/xiaoshanjiang/my-geektime/webook/internal/web"
 )
 
 func InitWechatService() wechat.Service {
@@ -19,4 +20,10 @@ func InitWechatService() wechat.Service {
 		panic("没有找到环境变量 WECHAT_APP_SECRET")
 	}
 	return wechat.NewService(appId, appKey)
+}
+
+func NewWechatHandlerConfig() web.WechatHandlerConfig {
+	return web.WechatHandlerConfig{
+		Secure: false,
+	}
 }

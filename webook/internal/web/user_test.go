@@ -14,7 +14,8 @@ import (
 	"github.com/xiaoshanjiang/my-geektime/webook/internal/domain"
 	"github.com/xiaoshanjiang/my-geektime/webook/internal/service"
 	svcmocks "github.com/xiaoshanjiang/my-geektime/webook/internal/service/mocks"
-
+	ijwt "github.com/xiaoshanjiang/my-geektime/webook/internal/web/jwt"
+	jwtmocks "github.com/xiaoshanjiang/my-geektime/webook/internal/web/jwt/mocks"
 	"go.uber.org/mock/gomock"
 )
 
@@ -28,7 +29,7 @@ func TestUserHandler_SignUp(t *testing.T) {
 		// 因为 UserHandler 用到了 UserService 和 CodeService
 		// 所以我们需要准备这两个的 mock 实例。
 		// 因此你能看到它返回了 UserService 和 CodeService
-		mock func(ctrl *gomock.Controller) (service.UserService, service.CodeService)
+		mock func(ctrl *gomock.Controller) (service.UserService, service.CodeService, ijwt.Handler)
 
 		// 输入，因为 request 的构造过程可能很复杂
 		// 所以我们在这里定义一个 Builder
@@ -40,7 +41,7 @@ func TestUserHandler_SignUp(t *testing.T) {
 	}{
 		{
 			name: "注册成功",
-			mock: func(ctrl *gomock.Controller) (service.UserService, service.CodeService) {
+			mock: func(ctrl *gomock.Controller) (service.UserService, service.CodeService, ijwt.Handler) {
 				usersvc := svcmocks.NewMockUserService(ctrl)
 				usersvc.EXPECT().Signup(gomock.Any(), domain.User{
 					Email:    "123@qq.com",
@@ -50,7 +51,8 @@ func TestUserHandler_SignUp(t *testing.T) {
 				// 在 signup 这个接口里面，并没有用到的 codesvc，
 				// 所以什么不需要准备模拟调用
 				codesvc := svcmocks.NewMockCodeService(ctrl)
-				return usersvc, codesvc
+				hdl := jwtmocks.NewMockHandler(ctrl)
+				return usersvc, codesvc, hdl
 			},
 			reqBuilder: func(t *testing.T) *http.Request {
 				body := bytes.NewBuffer([]byte(`{
@@ -69,9 +71,9 @@ func TestUserHandler_SignUp(t *testing.T) {
 		},
 		{
 			name: "非 JSON 输入",
-			mock: func(ctrl *gomock.Controller) (service.UserService, service.CodeService) {
+			mock: func(ctrl *gomock.Controller) (service.UserService, service.CodeService, ijwt.Handler) {
 				// 因为根本没有跑到 singup 那里，所以直接返回 nil 都可以
-				return nil, nil
+				return nil, nil, nil
 			},
 			reqBuilder: func(t *testing.T) *http.Request {
 				// 准备一个错误的JSON 串
@@ -87,9 +89,9 @@ func TestUserHandler_SignUp(t *testing.T) {
 		},
 		{
 			name: "邮箱格式不对",
-			mock: func(ctrl *gomock.Controller) (service.UserService, service.CodeService) {
+			mock: func(ctrl *gomock.Controller) (service.UserService, service.CodeService, ijwt.Handler) {
 				// 因为根本没有跑到 signup 那里，所以直接返回 nil 都可以
-				return nil, nil
+				return nil, nil, nil
 			},
 			reqBuilder: func(t *testing.T) *http.Request {
 				// 准备一个不合法的邮箱
@@ -106,9 +108,9 @@ func TestUserHandler_SignUp(t *testing.T) {
 		},
 		{
 			name: "两次密码输入不同",
-			mock: func(ctrl *gomock.Controller) (service.UserService, service.CodeService) {
+			mock: func(ctrl *gomock.Controller) (service.UserService, service.CodeService, ijwt.Handler) {
 				// 因为根本没有跑到 signup 那里，所以直接返回 nil 都可以
-				return nil, nil
+				return nil, nil, nil
 			},
 			reqBuilder: func(t *testing.T) *http.Request {
 				// 准备一个不合法的邮箱
@@ -125,9 +127,9 @@ func TestUserHandler_SignUp(t *testing.T) {
 		},
 		{
 			name: "密码格式不对",
-			mock: func(ctrl *gomock.Controller) (service.UserService, service.CodeService) {
+			mock: func(ctrl *gomock.Controller) (service.UserService, service.CodeService, ijwt.Handler) {
 				// 因为根本没有跑到 signup 那里，所以直接返回 nil 都可以
-				return nil, nil
+				return nil, nil, nil
 			},
 			reqBuilder: func(t *testing.T) *http.Request {
 				// 准备一个不合法的邮箱
@@ -144,7 +146,7 @@ func TestUserHandler_SignUp(t *testing.T) {
 		},
 		{
 			name: "邮箱冲突",
-			mock: func(ctrl *gomock.Controller) (service.UserService, service.CodeService) {
+			mock: func(ctrl *gomock.Controller) (service.UserService, service.CodeService, ijwt.Handler) {
 				usersvc := svcmocks.NewMockUserService(ctrl)
 				usersvc.EXPECT().Signup(gomock.Any(), gomock.Any()).
 					// 模拟返回邮箱冲突的异常
@@ -153,7 +155,8 @@ func TestUserHandler_SignUp(t *testing.T) {
 				// 在 signup 这个接口里面，并没有用到的 codesvc，
 				// 所以什么不需要准备模拟调用
 				codesvc := svcmocks.NewMockCodeService(ctrl)
-				return usersvc, codesvc
+				hdl := jwtmocks.NewMockHandler(ctrl)
+				return usersvc, codesvc, hdl
 			},
 			reqBuilder: func(t *testing.T) *http.Request {
 				body := bytes.NewBuffer([]byte(`{"email":"123@qq.com","password":"hello@world123","confirmPassword":"hello@world123"}`))
@@ -169,7 +172,7 @@ func TestUserHandler_SignUp(t *testing.T) {
 		},
 		{
 			name: "系统异常",
-			mock: func(ctrl *gomock.Controller) (service.UserService, service.CodeService) {
+			mock: func(ctrl *gomock.Controller) (service.UserService, service.CodeService, ijwt.Handler) {
 				usersvc := svcmocks.NewMockUserService(ctrl)
 				usersvc.EXPECT().Signup(gomock.Any(), gomock.Any()).
 					// 注册失败，系统本身的异常
@@ -178,7 +181,8 @@ func TestUserHandler_SignUp(t *testing.T) {
 				// 在 signup 这个接口里面，并没有用到的 codesvc，
 				// 所以什么不需要准备模拟调用
 				codesvc := svcmocks.NewMockCodeService(ctrl)
-				return usersvc, codesvc
+				hdl := jwtmocks.NewMockHandler(ctrl)
+				return usersvc, codesvc, hdl
 			},
 			reqBuilder: func(t *testing.T) *http.Request {
 				body := bytes.NewBuffer([]byte(`{"email":"123@qq.com","password":"hello@world123","confirmPassword":"hello@world123"}`))
@@ -198,9 +202,9 @@ func TestUserHandler_SignUp(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			ctrl := gomock.NewController(t)
 			defer ctrl.Finish()
-			usersvc, codesvc := tc.mock(ctrl)
+			usersvc, codesvc, jwthdl := tc.mock(ctrl)
 			// 利用 mock 来构造 UserHandler
-			hdl := NewUserHandler(usersvc, codesvc)
+			hdl := NewUserHandler(usersvc, codesvc, jwthdl)
 
 			// 注册路由
 			server := gin.Default()
@@ -222,14 +226,14 @@ func TestUserHandler_LoginJWT(t *testing.T) {
 	const loginJwtUrl = "/users/login"
 	testCases := []struct {
 		name       string
-		mock       func(ctrl *gomock.Controller) (service.UserService, service.CodeService)
+		mock       func(ctrl *gomock.Controller) (service.UserService, service.CodeService, ijwt.Handler)
 		reqBuilder func(t *testing.T) *http.Request
 		wantCode   int
 		wantBody   string
 	}{
 		{
 			name: "登录成功",
-			mock: func(ctrl *gomock.Controller) (service.UserService, service.CodeService) {
+			mock: func(ctrl *gomock.Controller) (service.UserService, service.CodeService, ijwt.Handler) {
 				usersvc := svcmocks.NewMockUserService(ctrl)
 				usersvc.EXPECT().Login(gomock.Any(), "123@qq.com", "hello@world123").
 					Return(domain.User{
@@ -238,7 +242,8 @@ func TestUserHandler_LoginJWT(t *testing.T) {
 					}, nil)
 
 				codesvc := svcmocks.NewMockCodeService(ctrl)
-				return usersvc, codesvc
+				hdl := jwtmocks.NewMockHandler(ctrl)
+				return usersvc, codesvc, hdl
 			},
 			reqBuilder: func(t *testing.T) *http.Request {
 				body := bytes.NewBuffer([]byte(`{
@@ -256,9 +261,9 @@ func TestUserHandler_LoginJWT(t *testing.T) {
 		},
 		{
 			name: "LoginReq绑定失败",
-			mock: func(ctrl *gomock.Controller) (service.UserService, service.CodeService) {
+			mock: func(ctrl *gomock.Controller) (service.UserService, service.CodeService, ijwt.Handler) {
 				// 因为根本没有跑到 singup 那里，所以直接返回 nil 都可以
-				return nil, nil
+				return nil, nil, nil
 			},
 			reqBuilder: func(t *testing.T) *http.Request {
 				// 准备一个错误的JSON 串
@@ -274,13 +279,14 @@ func TestUserHandler_LoginJWT(t *testing.T) {
 		},
 		{
 			name: "用户名或者密码不正确",
-			mock: func(ctrl *gomock.Controller) (service.UserService, service.CodeService) {
+			mock: func(ctrl *gomock.Controller) (service.UserService, service.CodeService, ijwt.Handler) {
 				usersvc := svcmocks.NewMockUserService(ctrl)
 				usersvc.EXPECT().Login(gomock.Any(), "123@qq.com", "wrongpassword").
 					Return(domain.User{}, service.ErrInvalidUserOrPassword)
 
 				codesvc := svcmocks.NewMockCodeService(ctrl)
-				return usersvc, codesvc
+				hdl := jwtmocks.NewMockHandler(ctrl)
+				return usersvc, codesvc, hdl
 			},
 			reqBuilder: func(t *testing.T) *http.Request {
 				body := bytes.NewBuffer([]byte(`{
@@ -302,9 +308,9 @@ func TestUserHandler_LoginJWT(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			ctrl := gomock.NewController(t)
 			defer ctrl.Finish()
-			usersvc, codesvc := tc.mock(ctrl)
+			usersvc, codesvc, jwthdl := tc.mock(ctrl)
 			// 利用 mock 来构造 UserHandler
-			hdl := NewUserHandler(usersvc, codesvc)
+			hdl := NewUserHandler(usersvc, codesvc, jwthdl)
 
 			// 注册路由
 			server := gin.Default()
@@ -392,7 +398,7 @@ func TestEmailPattern(t *testing.T) {
 		},
 	}
 
-	h := NewUserHandler(nil, nil)
+	h := NewUserHandler(nil, nil, nil)
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
@@ -431,7 +437,7 @@ func TestPasswordPattern(t *testing.T) {
 		},
 	}
 
-	h := NewUserHandler(nil, nil)
+	h := NewUserHandler(nil, nil, nil)
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
