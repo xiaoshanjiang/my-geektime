@@ -8,7 +8,6 @@ import (
 	"github.com/gin-contrib/sessions"
 	"github.com/gin-gonic/gin"
 	"github.com/golang-jwt/jwt/v5"
-	"github.com/redis/go-redis/v9"
 	"github.com/xiaoshanjiang/my-geektime/webook/internal/domain"
 	"github.com/xiaoshanjiang/my-geektime/webook/internal/service"
 	ijwt "github.com/xiaoshanjiang/my-geektime/webook/internal/web/jwt"
@@ -34,9 +33,7 @@ type UserHandler struct {
 	emailRegexExp    *regexp.Regexp
 	passwordRegexExp *regexp.Regexp
 	// 只有在使用 JWT 的时候才有用
-	jwtKey string
 	ijwt.Handler
-	cmd redis.Cmdable
 }
 
 func NewUserHandler(svc service.UserService,
