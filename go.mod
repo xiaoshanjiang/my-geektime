@@ -5,10 +5,10 @@ go 1.20
 require (
 	github.com/DATA-DOG/go-sqlmock v1.5.0
 	github.com/alibabacloud-go/dysmsapi-20170525/v2 v2.0.18
-	github.com/aliyun/alibaba-cloud-sdk-go v1.62.527
+	github.com/aliyun/alibaba-cloud-sdk-go v1.62.568
 	github.com/cloopen/go-sms-sdk v0.0.0-20200702015230-7c5619f80c9e
 	github.com/dlclark/regexp2 v1.10.0
-	github.com/ecodeclub/ekit v0.0.7
+	github.com/ecodeclub/ekit v0.0.8
 	github.com/gin-contrib/cors v1.4.0
 	github.com/gin-contrib/sessions v0.0.5
 	github.com/gin-gonic/gin v1.9.1
@@ -18,13 +18,14 @@ require (
 	github.com/golang-jwt/jwt/v5 v5.0.0
 	github.com/google/wire v0.5.0
 	github.com/lithammer/shortuuid/v4 v4.0.0
-	github.com/redis/go-redis/v9 v9.1.0
-	github.com/stretchr/testify v1.8.3
-	github.com/tencentcloud/tencentcloud-sdk-go/tencentcloud/sms v1.0.733
-	go.uber.org/mock v0.2.0
-	golang.org/x/crypto v0.9.0
+	github.com/redis/go-redis/v9 v9.2.1
+	github.com/stretchr/testify v1.8.4
+	github.com/tencentcloud/tencentcloud-sdk-go/tencentcloud/common v1.0.760
+	github.com/tencentcloud/tencentcloud-sdk-go/tencentcloud/sms v1.0.760
+	go.uber.org/mock v0.3.0
+	golang.org/x/crypto v0.14.0
 	gorm.io/driver/mysql v1.5.1
-	gorm.io/gorm v1.25.2
+	gorm.io/gorm v1.25.4
 )
 
 require (
@@ -65,14 +66,13 @@ require (
 	github.com/pelletier/go-toml/v2 v2.0.8 // indirect
 	github.com/pmezard/go-difflib v1.0.0 // indirect
 	github.com/quasoft/memstore v0.0.0-20191010062613-2bce066d2b0b // indirect
-	github.com/tencentcloud/tencentcloud-sdk-go/tencentcloud/common v1.0.733 // indirect
 	github.com/tjfoc/gmsm v1.3.2 // indirect
 	github.com/twitchyliquid64/golang-asm v0.15.1 // indirect
 	github.com/ugorji/go/codec v1.2.11 // indirect
 	golang.org/x/arch v0.3.0 // indirect
 	golang.org/x/net v0.10.0 // indirect
-	golang.org/x/sys v0.8.0 // indirect
-	golang.org/x/text v0.9.0 // indirect
+	golang.org/x/sys v0.13.0 // indirect
+	golang.org/x/text v0.13.0 // indirect
 	google.golang.org/protobuf v1.30.0 // indirect
 	gopkg.in/ini.v1 v1.66.2 // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect
