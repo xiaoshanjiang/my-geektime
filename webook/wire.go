@@ -16,7 +16,8 @@ import (
 
 func InitWebServer() *gin.Engine {
 	wire.Build(
-		ioc.InitRedis, ioc.InitDB,
+		// 最基础的第三方依赖
+		ioc.InitDB, ioc.InitRedis,
 
 		// DAO 部分
 		dao.NewGORMUserDAO,
@@ -30,10 +31,11 @@ func InitWebServer() *gin.Engine {
 
 		// service 部分
 		// ioc.InitSmsService,
+		service.NewUserService,
+		service.NewSMSCodeService,
+		// 直接基于内存实现
 		ioc.InitSmsMemoryService,
 		ioc.InitWechatService,
-		service.NewSMSCodeService,
-		service.NewUserService,
 
 		// handler 部分
 		web.NewUserHandler,
