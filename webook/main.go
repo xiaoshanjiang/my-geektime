@@ -82,7 +82,7 @@ func initViperV2() {
 
 func initViperV2Watch() {
 	cfile := pflag.String("config",
-		"config/config.yaml", "配置文件路径")
+		"config/dev.yaml", "配置文件路径")
 	pflag.Parse()
 	// 直接指定文件路径
 	viper.SetConfigFile(*cfile)
