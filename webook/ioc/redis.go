@@ -2,16 +2,13 @@ package ioc
 
 import (
 	"github.com/redis/go-redis/v9"
-
-	"github.com/xiaoshanjiang/my-geektime/webook/config"
+	"github.com/spf13/viper"
 )
 
 func InitRedis() redis.Cmdable {
-	rCfg := config.Config.Redis
+	// 这里演示读取特定的某个字段
 	cmd := redis.NewClient(&redis.Options{
-		Addr:     rCfg.Addr,
-		Password: rCfg.Password,
-		DB:       rCfg.DB,
+		Addr: viper.GetString("redis.addr"),
 	})
 	return cmd
 }
