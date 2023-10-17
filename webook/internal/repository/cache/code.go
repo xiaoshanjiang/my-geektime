@@ -7,6 +7,7 @@ import (
 	"fmt"
 
 	"github.com/redis/go-redis/v9"
+	"go.uber.org/zap"
 )
 
 var (
@@ -49,7 +50,9 @@ func (c *RedisCodeCache) Set(ctx context.Context, biz string, phone string, code
 	case 0:
 		return nil
 	case -1:
-		//	最近发过
+		// 发送太频繁
+		zap.L().Warn("e3ONUIqhqwsozoYwrw90nJbp 短信发送太频繁", zap.String("biz", biz))
+		// phone 是敏感信息, 不能直接记在日志里
 		return ErrCodeSendTooMany
 	default:
 		// 系统错误，比如说 -2，是 key 冲突

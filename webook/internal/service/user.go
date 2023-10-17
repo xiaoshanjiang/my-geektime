@@ -4,10 +4,11 @@ import (
 	"context"
 	"errors"
 
-	"golang.org/x/crypto/bcrypt"
-
 	"github.com/xiaoshanjiang/my-geektime/webook/internal/domain"
 	"github.com/xiaoshanjiang/my-geektime/webook/internal/repository"
+	"github.com/xiaoshanjiang/my-geektime/webook/pkg/logger"
+	"go.uber.org/zap"
+	"golang.org/x/crypto/bcrypt"
 )
 
 var ErrUserDuplicateEmail = repository.ErrUserDuplicate
@@ -26,11 +27,21 @@ type UserService interface {
 
 type userService struct {
 	repo repository.UserRepository
+	l    logger.LoggerV1
 }
 
-func NewUserService(repo repository.UserRepository) UserService {
+func NewUserService(repo repository.UserRepository, l logger.LoggerV1) UserService {
 	return &userService{
 		repo: repo,
+		l:    l,
+	}
+}
+
+func NewUserServiceV1(repo repository.UserRepository, l *zap.Logger) UserService {
+	return &userService{
+		repo: repo,
+		// 预留了变化空间
+		//logger: zap.L(),
 	}
 }
 

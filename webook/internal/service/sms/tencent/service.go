@@ -8,6 +8,7 @@ import (
 	"github.com/ecodeclub/ekit/slice"
 	sms "github.com/tencentcloud/tencentcloud-sdk-go/tencentcloud/sms/v20210111"
 	"github.com/xiaoshanjiang/my-geektime/webook/pkg/ratelimit"
+	"go.uber.org/zap"
 )
 
 type Service struct {
@@ -36,8 +37,9 @@ func (s *Service) Send(ctx context.Context, biz string,
 	req.TemplateParamSet = toStringPtrSlice(args)
 	req.SetContext(ctx)
 	resp, err := s.client.SendSms(req)
+	zap.L().Debug("发送短信", zap.Any("req", req), zap.Any("resp", resp), zap.Error(err))
 	if err != nil {
-		return err
+		return fmt.Errorf("腾讯短信服务发送失败 %w", err)
 	}
 	for _, status := range resp.Response.SendStatusSet {
 		if status.Code == nil || *(status.Code) != "Ok" {

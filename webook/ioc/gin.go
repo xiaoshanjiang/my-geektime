@@ -1,6 +1,7 @@
 package ioc
 
 import (
+	"context"
 	"strings"
 	"time"
 
@@ -13,6 +14,8 @@ import (
 	"github.com/xiaoshanjiang/my-geektime/webook/internal/web"
 	ijwt "github.com/xiaoshanjiang/my-geektime/webook/internal/web/jwt"
 	"github.com/xiaoshanjiang/my-geektime/webook/internal/web/middleware"
+	"github.com/xiaoshanjiang/my-geektime/webook/pkg/ginx/middlewares/logger"
+	logger2 "github.com/xiaoshanjiang/my-geektime/webook/pkg/logger"
 )
 
 func InitWebServer(mdls []gin.HandlerFunc, userHdl *web.UserHandler,
@@ -24,9 +27,14 @@ func InitWebServer(mdls []gin.HandlerFunc, userHdl *web.UserHandler,
 	return server
 }
 
-func InitMiddlewares(redisClient redis.Cmdable, jwtHdl ijwt.Handler) []gin.HandlerFunc {
+func InitMiddlewares(redisClient redis.Cmdable,
+	l logger2.LoggerV1,
+	jwtHdl ijwt.Handler) []gin.HandlerFunc {
 	return []gin.HandlerFunc{
 		corsHandler(),
+		logger.NewBuilder(func(ctx context.Context, al *logger.AccessLog) {
+			l.Debug("HTTP请求", logger2.Field{Key: "al", Value: al})
+		}).AllowReqBody().AllowRespBody().Build(),
 		middleware.NewLoginJWTMiddlewareBuilder(jwtHdl).Build(),
 		// ratelimit.NewBuilder(redisClient, time.Second, 100).Build(),
 	}

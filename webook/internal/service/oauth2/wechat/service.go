@@ -7,7 +7,10 @@ import (
 	"net/http"
 	"net/url"
 
+	"go.uber.org/zap"
+
 	"github.com/xiaoshanjiang/my-geektime/webook/internal/domain"
+	"github.com/xiaoshanjiang/my-geektime/webook/pkg/logger"
 )
 
 var redirectURI = url.PathEscape("https://meoying.com/oauth2/wechat/callback")
@@ -21,6 +24,7 @@ type service struct {
 	appId     string
 	appSecret string
 	client    *http.Client
+	l         logger.LoggerV1
 }
 
 // 不偷懒的写法
@@ -32,12 +36,13 @@ func NewServiceV1(appId string, appSecret string, client *http.Client) Service {
 	}
 }
 
-func NewService(appId string, appSecret string) Service {
+func NewService(appId string, appSecret string, l logger.LoggerV1) Service {
 	return &service{
 		appId:     appId,
 		appSecret: appSecret,
 		// 依赖注入，但是没完全注入
 		client: http.DefaultClient,
+		l:      l,
 	}
 }
 
@@ -82,6 +87,8 @@ func (s *service) VerifyCode(ctx context.Context, code string) (domain.WechatInf
 	//	// 不相等
 	//}
 
+	zap.L().Info("调用微信，拿到用户信息",
+		zap.String("unionID", res.UnionID), zap.String("openID", res.OpenID))
 	return domain.WechatInfo{
 		OpenID:  res.OpenID,
 		UnionID: res.UnionID,

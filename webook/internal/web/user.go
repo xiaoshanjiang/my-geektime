@@ -11,6 +11,7 @@ import (
 	"github.com/xiaoshanjiang/my-geektime/webook/internal/domain"
 	"github.com/xiaoshanjiang/my-geektime/webook/internal/service"
 	ijwt "github.com/xiaoshanjiang/my-geektime/webook/internal/web/jwt"
+	"go.uber.org/zap"
 )
 
 const (
@@ -92,18 +93,25 @@ func (u *UserHandler) RefreshToken(ctx *gin.Context) {
 		return ijwt.RtKey, nil
 	})
 	if err != nil || !token.Valid {
+		zap.L().Error("2TS9bvGP3LQkMRZZmND1fhJ9 系统异常", zap.Error(err))
 		ctx.AbortWithStatus(http.StatusUnauthorized)
 		return
 	}
 	err = u.CheckSession(ctx, rc.Ssid)
 	if err != nil {
 		// 要么 redis 有问题，要么已经退出登录
+		// 信息量不足
+		zap.L().Error("1hHiGNijXDY8LMpqQ0nA2FzJ 系统异常", zap.Error(err))
 		ctx.AbortWithStatus(http.StatusUnauthorized)
 		return
 	}
 	// 搞个新的 access_token
 	err = u.SetJWTToken(ctx, rc.Uid, rc.Ssid)
 	if err != nil {
+		// 正常来说，msg 的部分就应该包含足够的定位信息
+		zap.L().Error("0QKxctrgT4LYWd5P2xZMjP4X 设置JWT token出现异常",
+			zap.Error(err),
+			zap.String("method", "UserHandler:RefreshToken"))
 		ctx.AbortWithStatus(http.StatusUnauthorized)
 		return
 	}
@@ -119,11 +127,15 @@ func (c *UserHandler) LoginSMS(ctx *gin.Context) {
 	}
 	var req Req
 	if err := ctx.Bind(&req); err != nil {
+		zap.L().Error("HcPmbdYxnH2x7XbzWiRGzQF1 校验验证码出错", zap.Error(err))
 		return
 	}
 	ok, err := c.codeSvc.Verify(ctx, bizLogin, req.Phone, req.Code)
 	if err != nil {
 		ctx.JSON(http.StatusOK, Result{Code: 5, Msg: "系统异常"})
+		zap.L().Error("L6HhjyZ8CHDgXdjituQkb6w8 校验验证码出错", zap.Error(err))
+		zap.L().Debug("L6HhjyZ8CHDgXdjituQkb6w8 校验验证码出错", zap.Error(err),
+			zap.String("手机号码", req.Phone))
 		return
 	}
 	if !ok {
@@ -135,11 +147,13 @@ func (c *UserHandler) LoginSMS(ctx *gin.Context) {
 	// 登录或者注册用户
 	u, err := c.svc.FindOrCreate(ctx, req.Phone)
 	if err != nil {
+		zap.L().Error("gXGeZAnc9jPuvqeQZz9heLtO 校验验证码出错", zap.Error(err))
 		ctx.JSON(http.StatusOK, Result{Code: 4, Msg: "系统错误"})
 		return
 	}
 	err = c.SetLoginToken(ctx, u.Id)
 	if err != nil {
+		zap.L().Error("WhZbaebdYdYkJmsPOTM5YlYf 校验验证码出错", zap.Error(err))
 		ctx.JSON(http.StatusOK, Result{Msg: "系统错误"})
 		return
 	}
@@ -166,8 +180,10 @@ func (c *UserHandler) SendSMSLoginCode(ctx *gin.Context) {
 		ctx.JSON(http.StatusOK, Result{Msg: "发送成功"})
 	case service.ErrCodeSendTooMany:
 		ctx.JSON(http.StatusOK, Result{Code: 4, Msg: "短信发送太频繁，请稍后再试"})
+		zap.L().Warn("ejWLi768jaJXXaSGGeOBqHQB 短信发送太频繁", zap.Error(err))
 	default:
 		ctx.JSON(http.StatusOK, Result{Code: 5, Msg: "系统错误"})
+		zap.L().Error("qtVCXyQj2QSMG9b5ugOIY7Bb 短信发送失败", zap.Error(err))
 		// 要打印日志
 		return
 	}

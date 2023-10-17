@@ -17,23 +17,28 @@ import (
 	"github.com/xiaoshanjiang/my-geektime/webook/ioc"
 )
 
+import (
+	_ "github.com/spf13/viper/remote"
+)
+
 // Injectors from wire.go:
 
 func InitWebServer() *gin.Engine {
 	cmdable := ioc.InitRedis()
+	loggerV1 := ioc.InitLogger()
 	handler := jwt.NewRedisJWTHandler(cmdable)
-	v := ioc.InitMiddlewares(cmdable, handler)
+	v := ioc.InitMiddlewares(cmdable, loggerV1, handler)
 	db := ioc.InitDB()
 	userDAO := dao.NewGORMUserDAO(db)
 	userCache := cache.NewRedisUserCache(cmdable)
 	userRepository := repository.NewCachedUserRepository(userDAO, userCache)
-	userService := service.NewUserService(userRepository)
+	userService := service.NewUserService(userRepository, loggerV1)
 	smsService := ioc.InitSmsMemoryService()
 	codeCache := cache.NewRedisCodeCache(cmdable)
 	codeRepository := repository.NewCachedCodeRepository(codeCache)
 	codeService := service.NewSMSCodeService(smsService, codeRepository)
 	userHandler := web.NewUserHandler(userService, codeService, handler)
-	wechatService := ioc.InitWechatService()
+	wechatService := ioc.InitWechatService(loggerV1)
 	wechatHandlerConfig := ioc.NewWechatHandlerConfig()
 	oAuth2WechatHandler := web.NewOAuth2WechatHandler(wechatService, userService, handler, wechatHandlerConfig)
 	engine := ioc.InitWebServer(v, userHandler, oAuth2WechatHandler)
