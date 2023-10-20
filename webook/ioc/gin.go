@@ -11,6 +11,8 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/redis/go-redis/v9"
 
+	"github.com/fsnotify/fsnotify"
+	"github.com/spf13/viper"
 	"github.com/xiaoshanjiang/my-geektime/webook/internal/web"
 	ijwt "github.com/xiaoshanjiang/my-geektime/webook/internal/web/jwt"
 	"github.com/xiaoshanjiang/my-geektime/webook/internal/web/middleware"
@@ -30,11 +32,16 @@ func InitWebServer(mdls []gin.HandlerFunc, userHdl *web.UserHandler,
 func InitMiddlewares(redisClient redis.Cmdable,
 	l logger2.LoggerV1,
 	jwtHdl ijwt.Handler) []gin.HandlerFunc {
+	bd := logger.NewBuilder(func(ctx context.Context, al *logger.AccessLog) {
+		l.Debug("HTTP请求", logger2.Field{Key: "al", Value: al})
+	}).AllowReqBody(true).AllowRespBody()
+	viper.OnConfigChange(func(in fsnotify.Event) {
+		ok := viper.GetBool("web.logreq")
+		bd.AllowReqBody(ok)
+	})
 	return []gin.HandlerFunc{
 		corsHandler(),
-		logger.NewBuilder(func(ctx context.Context, al *logger.AccessLog) {
-			l.Debug("HTTP请求", logger2.Field{Key: "al", Value: al})
-		}).AllowReqBody().AllowRespBody().Build(),
+		bd.Build(),
 		middleware.NewLoginJWTMiddlewareBuilder(jwtHdl).Build(),
 		// ratelimit.NewBuilder(redisClient, time.Second, 100).Build(),
 	}
