@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/xiaoshanjiang/my-geektime/webook/internal/integration/startup"
 	"github.com/xiaoshanjiang/my-geektime/webook/internal/web"
 	"github.com/xiaoshanjiang/my-geektime/webook/ioc"
 )
@@ -18,7 +19,7 @@ import (
 func TestUserHandler_e2e_SendLoginSMSCode(t *testing.T) {
 	const sendSMSCodeUrl = "/users/login_sms/code/send"
 	// 使用依赖注入的 server
-	server := InitWebServer()
+	server := startup.InitWebServer()
 	rdb := ioc.InitRedis()
 	testCases := []struct {
 		// 名字
@@ -34,7 +35,8 @@ func TestUserHandler_e2e_SendLoginSMSCode(t *testing.T) {
 		wantCode   int
 		wantResult web.Result
 	}{
-		{name: "发送成功",
+		{
+			name: "发送成功",
 			before: func(t *testing.T) {
 				// 啥也不做
 			},
