@@ -23,6 +23,7 @@ func InitWebServer() *gin.Engine {
 
 		// DAO 部分
 		dao.NewGORMUserDAO,
+		dao.NewGORMArticleDAO,
 
 		// Cache 部分
 		cache.NewRedisUserCache, cache.NewRedisCodeCache,
@@ -30,20 +31,23 @@ func InitWebServer() *gin.Engine {
 		// repository 部分
 		repository.NewCachedUserRepository,
 		repository.NewCachedCodeRepository,
+		repository.NewArticleRepository,
 
 		// service 部分
 		// ioc.InitSmsService,
-		service.NewUserService,
-		service.NewSMSCodeService,
 		// 直接基于内存实现
 		ioc.InitSmsMemoryService,
 		ioc.InitWechatService,
+		service.NewUserService,
+		service.NewSMSCodeService,
+		service.NewArticleService,
 
 		// handler 部分
+		ijwt.NewRedisJWTHandler,
 		web.NewUserHandler,
+		web.NewArticleHandler,
 		web.NewOAuth2WechatHandler,
 		ioc.NewWechatHandlerConfig,
-		ijwt.NewRedisJWTHandler,
 
 		// gin 的中间件
 		ioc.InitMiddlewares,
