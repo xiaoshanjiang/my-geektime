@@ -18,6 +18,7 @@ type JWTLoginMiddlewareBuilder struct {
 
 func NewLoginJWTMiddlewareBuilder(jwtHdl ijwt.Handler) *JWTLoginMiddlewareBuilder {
 	s := set.NewMapSet[string](5)
+	s.Add("/favicon.ico")
 	s.Add("/hello")
 	s.Add("/users/signup")
 	s.Add("/users/login_sms/code/send")

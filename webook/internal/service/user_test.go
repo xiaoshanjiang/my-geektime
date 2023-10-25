@@ -10,6 +10,7 @@ import (
 	"github.com/xiaoshanjiang/my-geektime/webook/internal/domain"
 	"github.com/xiaoshanjiang/my-geektime/webook/internal/repository"
 	repomocks "github.com/xiaoshanjiang/my-geektime/webook/internal/repository/mocks"
+	"github.com/xiaoshanjiang/my-geektime/webook/pkg/logger"
 	"go.uber.org/mock/gomock"
 	"golang.org/x/crypto/bcrypt"
 )
@@ -106,7 +107,7 @@ func TestUserService_Login(t *testing.T) {
 			ctrl := gomock.NewController(t)
 			defer ctrl.Finish()
 			repo := tc.mock(ctrl)
-			svc := NewUserService(repo, nil)
+			svc := NewUserService(repo, &logger.NoOpLogger{})
 			user, err := svc.Login(tc.ctx, tc.email, tc.password)
 			assert.Equal(t, tc.wantErr, err)
 			assert.Equal(t, tc.wantUser, user)

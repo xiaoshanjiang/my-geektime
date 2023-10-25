@@ -7,6 +7,7 @@ import (
 	"github.com/google/wire"
 
 	"github.com/xiaoshanjiang/my-geektime/webook/internal/repository"
+	"github.com/xiaoshanjiang/my-geektime/webook/internal/repository/article"
 	"github.com/xiaoshanjiang/my-geektime/webook/internal/repository/cache"
 	"github.com/xiaoshanjiang/my-geektime/webook/internal/repository/dao"
 	"github.com/xiaoshanjiang/my-geektime/webook/internal/service"
@@ -34,7 +35,7 @@ func InitWebServer() *gin.Engine {
 		dao.NewGORMArticleDAO,
 		// repository 部分
 		repository.NewCachedCodeRepository,
-		repository.NewArticleRepository,
+		article.NewArticleRepository,
 		// service 部分
 		// 集成测试我们显式指定使用内存实现
 		ioc.InitSmsMemoryService,
@@ -65,12 +66,12 @@ func InitArticleHandler() *web.ArticleHandler {
 		dao.NewGORMArticleDAO,
 		service.NewArticleService,
 		web.NewArticleHandler,
-		repository.NewArticleRepository,
+		article.NewArticleRepository,
 	)
 	return &web.ArticleHandler{}
 }
 
-func InitUserSvc() service.UserServ ice {
+func InitUserSvc() service.UserService {
 	wire.Build(thirdProvider, userSvcProvider)
 	return service.NewUserService(nil, nil)
 }

@@ -7,6 +7,7 @@ import (
 	"github.com/google/wire"
 
 	"github.com/xiaoshanjiang/my-geektime/webook/internal/repository"
+	"github.com/xiaoshanjiang/my-geektime/webook/internal/repository/article"
 	"github.com/xiaoshanjiang/my-geektime/webook/internal/repository/cache"
 	"github.com/xiaoshanjiang/my-geektime/webook/internal/repository/dao"
 	"github.com/xiaoshanjiang/my-geektime/webook/internal/service"
@@ -31,7 +32,7 @@ func InitWebServer() *gin.Engine {
 		// repository 部分
 		repository.NewCachedUserRepository,
 		repository.NewCachedCodeRepository,
-		repository.NewArticleRepository,
+		article.NewArticleRepository,
 
 		// service 部分
 		// ioc.InitSmsService,

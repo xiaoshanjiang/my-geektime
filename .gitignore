@@ -283,4 +283,7 @@ next-env.d.ts
 webook-app
 webook-live
 
+.idea
+test.db
+
 # End of https://www.toptal.com/developers/gitignore/api/go,macos,windows,linux,node
