@@ -10,6 +10,7 @@ import (
 	"github.com/xiaoshanjiang/my-geektime/webook/internal/repository/article"
 	"github.com/xiaoshanjiang/my-geektime/webook/internal/repository/cache"
 	"github.com/xiaoshanjiang/my-geektime/webook/internal/repository/dao"
+	article2 "github.com/xiaoshanjiang/my-geektime/webook/internal/repository/dao/article"
 	"github.com/xiaoshanjiang/my-geektime/webook/internal/service"
 	"github.com/xiaoshanjiang/my-geektime/webook/internal/web"
 	ijwt "github.com/xiaoshanjiang/my-geektime/webook/internal/web/jwt"
@@ -24,7 +25,7 @@ func InitWebServer() *gin.Engine {
 
 		// DAO 部分
 		dao.NewGORMUserDAO,
-		dao.NewGORMArticleDAO,
+		article2.NewGORMArticleDAO,
 
 		// Cache 部分
 		cache.NewRedisUserCache, cache.NewRedisCodeCache,

@@ -10,6 +10,7 @@ import (
 	"github.com/xiaoshanjiang/my-geektime/webook/internal/repository/article"
 	"github.com/xiaoshanjiang/my-geektime/webook/internal/repository/cache"
 	"github.com/xiaoshanjiang/my-geektime/webook/internal/repository/dao"
+	article2 "github.com/xiaoshanjiang/my-geektime/webook/internal/repository/dao/article"
 	"github.com/xiaoshanjiang/my-geektime/webook/internal/service"
 	"github.com/xiaoshanjiang/my-geektime/webook/internal/web"
 	ijwt "github.com/xiaoshanjiang/my-geektime/webook/internal/web/jwt"
@@ -32,7 +33,7 @@ func InitWebServer() *gin.Engine {
 		// Cache 部分
 		cache.NewRedisCodeCache,
 
-		dao.NewGORMArticleDAO,
+		article2.NewGORMArticleDAO,
 		// repository 部分
 		repository.NewCachedCodeRepository,
 		article.NewArticleRepository,
@@ -63,7 +64,7 @@ func InitWebServer() *gin.Engine {
 
 func InitArticleHandler() *web.ArticleHandler {
 	wire.Build(thirdProvider,
-		dao.NewGORMArticleDAO,
+		article2.NewGORMArticleDAO,
 		service.NewArticleService,
 		web.NewArticleHandler,
 		article.NewArticleRepository,
