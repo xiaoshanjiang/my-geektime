@@ -106,7 +106,7 @@ func (u *UserHandler) RefreshToken(ctx *gin.Context) {
 		return
 	}
 	// 搞个新的 access_token
-	err = u.SetJWTToken(ctx, rc.Uid, rc.Ssid)
+	err = u.SetJWTToken(ctx, rc.Id, rc.Ssid)
 	if err != nil {
 		// 正常来说，msg 的部分就应该包含足够的定位信息
 		zap.L().Error("0QKxctrgT4LYWd5P2xZMjP4X 设置JWT token出现异常",
@@ -270,7 +270,7 @@ func (c *UserHandler) LoginJWT(ctx *gin.Context) {
 
 func (c *UserHandler) setJWTToken(ctx *gin.Context, uid int64) error {
 	token := jwt.NewWithClaims(jwt.SigningMethodHS256, ijwt.UserClaims{
-		Uid:       uid,
+		Id:        uid,
 		UserAgent: ctx.GetHeader("User-Agent"),
 		RegisteredClaims: jwt.RegisteredClaims{
 			// 演示目的设置为一分钟过期
@@ -356,7 +356,7 @@ func (c *UserHandler) Edit(ctx *gin.Context) {
 
 	uc := ctx.MustGet("user").(ijwt.UserClaims)
 	err = c.svc.UpdateNonSensitiveInfo(ctx, domain.User{
-		Id:       uc.Uid,
+		Id:       uc.Id,
 		Nickname: req.Nickname,
 		AboutMe:  req.AboutMe,
 		Birthday: birthday,
@@ -378,7 +378,7 @@ func (c *UserHandler) ProfileJWT(ctx *gin.Context) {
 		AboutMe  string
 	}
 	uc := ctx.MustGet("claims").(ijwt.UserClaims)
-	u, err := c.svc.Profile(ctx, uc.Uid)
+	u, err := c.svc.Profile(ctx, uc.Id)
 	if err != nil {
 		// 按照道理来说，这边 id 对应的数据肯定存在，所以要是没找到，
 		// 那就说明是系统出了问题。

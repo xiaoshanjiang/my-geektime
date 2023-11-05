@@ -60,7 +60,7 @@ func (j *JWTLoginMiddlewareBuilder) Build() gin.HandlerFunc {
 		token, err := jwt.ParseWithClaims(tokenStr, &uc, func(token *jwt.Token) (interface{}, error) {
 			return ijwt.JWTKey, nil
 		})
-		if err != nil || !token.Valid {
+		if err != nil || !token.Valid || uc.Id == 0 {
 			// 不正确的 token
 			ctx.AbortWithStatus(http.StatusUnauthorized)
 			return

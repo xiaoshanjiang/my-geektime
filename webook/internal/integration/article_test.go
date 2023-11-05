@@ -31,7 +31,7 @@ func (s *ArticleTestSuite) SetupSuite() {
 	s.server = gin.Default()
 	s.server.Use(func(ctx *gin.Context) {
 		ctx.Set("claims", &ijwt.UserClaims{
-			Uid: 123,
+			Id: 123,
 		})
 	})
 	s.db = startup.InitTestDB()

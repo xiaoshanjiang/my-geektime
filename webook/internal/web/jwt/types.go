@@ -16,7 +16,7 @@ type Handler interface {
 }
 
 type RefreshClaims struct {
-	Uid  int64
+	Id   int64
 	Ssid string
 	jwt.RegisteredClaims
 }
@@ -24,7 +24,7 @@ type RefreshClaims struct {
 type UserClaims struct {
 	jwt.RegisteredClaims
 	// 声明你自己的要放进去 token 里面的数据
-	Uid  int64
+	Id   int64
 	Ssid string
 	// 自己随便加
 	UserAgent string
