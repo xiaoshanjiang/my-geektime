@@ -1,3 +1,5 @@
+//go:build e2e
+
 package integration
 
 import (
@@ -9,7 +11,6 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
 	"github.com/stretchr/testify/suite"
 	"gorm.io/gorm"
 
@@ -19,212 +20,194 @@ import (
 	ijwt "github.com/xiaoshanjiang/my-geektime/webook/internal/web/jwt"
 )
 
-// ArticleTestSuite 测试套件
-type ArticleTestSuite struct {
+type ArticleGORMHandlerTestSuite struct {
 	suite.Suite
 	server *gin.Engine
 	db     *gorm.DB
 }
 
-func (s *ArticleTestSuite) SetupSuite() {
-	// 在所有测试执行之前，初始化一些内容
+func (s *ArticleGORMHandlerTestSuite) SetupSuite() {
 	s.server = gin.Default()
-	s.server.Use(func(ctx *gin.Context) {
-		ctx.Set("claims", &ijwt.UserClaims{
+	s.server.Use(func(context *gin.Context) {
+		// 直接设置好
+		context.Set("claims", &ijwt.UserClaims{
 			Id: 123,
 		})
+		context.Next()
 	})
 	s.db = startup.InitTestDB()
-	artHdl := startup.InitArticleHandler()
-	// 注册好了路由
-	artHdl.RegisterRoutes(s.server)
+	hdl := startup.InitArticleHandler(article.NewGORMArticleDAO(s.db))
+	hdl.RegisterRoutes(s.server)
 }
 
-// TearDownTest 每一个都会执行
-func (s *ArticleTestSuite) TearDownTest() {
-	// 清空所有数据，并且自增主键恢复到 1
-	s.db.Exec("TRUNCATE TABLE articles")
-	s.db.Exec("TRUNCATE TABLE published_articles")
+func (s *ArticleGORMHandlerTestSuite) TearDownTest() {
+	err := s.db.Exec("TRUNCATE TABLE `articles`").Error
+	assert.NoError(s.T(), err)
+	s.db.Exec("TRUNCATE TABLE `published_articles`")
 }
 
-func (s *ArticleTestSuite) TestEdit() {
+func (s *ArticleGORMHandlerTestSuite) TestArticleHandler_Edit() {
 	t := s.T()
 	testCases := []struct {
 		name string
-
-		// 集成测试准备数据
+		// 要提前准备数据
 		before func(t *testing.T)
-		// 集成测试验证数据
+		// 验证并且删除数据
 		after func(t *testing.T)
+		// 构造请求，直接使用 req
+		// 也就是说，我们放弃测试 Bind 的异常分支
+		req Article
 
-		// 预期中的输入
-		art Article
-
-		// HTTP 响应码
-		wantCode int
-		// 我希望 HTTP 响应，带上帖子的 ID
-		wantRes Result[int64]
+		// 预期响应
+		wantCode   int
+		wantResult Result[int64]
 	}{
 		{
-			name: "新建帖子-保存成功",
+			name: "新建帖子",
 			before: func(t *testing.T) {
-
+				// 什么也不需要做
 			},
 			after: func(t *testing.T) {
-				// 验证数据库
+				// 验证一下数据
 				var art article.Article
-				err := s.db.Where("id=?", 1).First(&art).Error
-				assert.NoError(t, err)
+				s.db.Where("author_id = ?", 123).First(&art)
 				assert.True(t, art.Ctime > 0)
 				assert.True(t, art.Utime > 0)
-				art.Ctime = 0
+				// 重置了这些值，因为无法比较
 				art.Utime = 0
+				art.Ctime = 0
 				assert.Equal(t, article.Article{
 					Id:       1,
-					Title:    "我的标题",
-					Content:  "我的内容",
+					Title:    "hello，你好",
+					Content:  "随便试试",
 					AuthorId: 123,
-					Status:   uint8(domain.ArticleStatusUnpublished),
+					Status:   domain.ArticleStatusUnpublished.ToUint8(),
 				}, art)
 			},
-			art: Article{
-				Title:   "我的标题",
-				Content: "我的内容",
+			req: Article{
+				Title:   "hello，你好",
+				Content: "随便试试",
 			},
-			wantCode: http.StatusOK,
-			wantRes: Result[int64]{
+			wantCode: 200,
+			wantResult: Result[int64]{
 				Data: 1,
-				Msg:  "OK",
 			},
 		},
 		{
-			name: "修改已有帖子，并保存",
+			// 这个是已经有了，然后修改之后再保存
+			name: "更新帖子",
 			before: func(t *testing.T) {
-				// 提前准备数据
-				err := s.db.Create(article.Article{
+				// 模拟已经存在的帖子，并且是已经发布的帖子
+				s.db.Create(&article.Article{
 					Id:       2,
 					Title:    "我的标题",
 					Content:  "我的内容",
+					Ctime:    456,
+					Utime:    234,
 					AuthorId: 123,
-					// 跟时间有关的测试，不是逼不得已，不要用 time.Now()
-					// 因为 time.Now() 每次运行都不同，你很难断言
-					Ctime: 123,
-					Utime: 234,
-					// 假设这是一个已经发表了的，然后你去修改，改成了没发表
-					Status: uint8(domain.ArticleStatusPublished),
-				}).Error
-				assert.NoError(t, err)
+					Status:   domain.ArticleStatusPublished.ToUint8(),
+				})
 			},
 			after: func(t *testing.T) {
-				// 验证数据库
+				// 验证一下数据
 				var art article.Article
-				err := s.db.Where("id=?", 2).First(&art).Error
-				assert.NoError(t, err)
-				// 是为了确保我更新了 Utime
+				s.db.Where("id = ?", 2).First(&art)
 				assert.True(t, art.Utime > 234)
 				art.Utime = 0
 				assert.Equal(t, article.Article{
 					Id:       2,
 					Title:    "新的标题",
 					Content:  "新的内容",
-					Ctime:    123,
 					AuthorId: 123,
-					Status:   uint8(domain.ArticleStatusUnpublished),
+					// 创建时间没变
+					Ctime:  456,
+					Status: domain.ArticleStatusUnpublished.ToUint8(),
 				}, art)
 			},
-			art: Article{
+			req: Article{
 				Id:      2,
 				Title:   "新的标题",
 				Content: "新的内容",
 			},
-			wantCode: http.StatusOK,
-			wantRes: Result[int64]{
+			wantCode: 200,
+			wantResult: Result[int64]{
 				Data: 2,
-				Msg:  "OK",
 			},
 		},
+
 		{
-			name: "修改别人的帖子",
+			name: "更新别人的帖子",
 			before: func(t *testing.T) {
-				// 提前准备数据
-				err := s.db.Create(article.Article{
+				// 模拟已经存在的帖子
+				s.db.Create(&article.Article{
 					Id:      3,
 					Title:   "我的标题",
 					Content: "我的内容",
-					// 测试模拟的用户 ID 是123，这里是 789
-					// 意味着你在修改别人的数据
+					Ctime:   456,
+					Utime:   234,
+					// 注意。这个 AuthorID 我们设置为另外一个人的ID
 					AuthorId: 789,
-					// 跟时间有关的测试，不是逼不得已，不要用 time.Now()
-					// 因为 time.Now() 每次运行都不同，你很难断言
-					Ctime: 123,
-					Utime: 234,
-					// 为了验证状态没有变
-					Status: uint8(domain.ArticleStatusPublished),
-				}).Error
-				assert.NoError(t, err)
+					Status:   domain.ArticleStatusPublished.ToUint8(),
+				})
 			},
 			after: func(t *testing.T) {
-				// 验证数据库
+				// 更新应该是失败了，数据没有发生变化
 				var art article.Article
-				err := s.db.Where("id=?", 3).First(&art).Error
-				assert.NoError(t, err)
+				s.db.Where("id = ?", 3).First(&art)
 				assert.Equal(t, article.Article{
 					Id:       3,
 					Title:    "我的标题",
 					Content:  "我的内容",
-					Ctime:    123,
+					Ctime:    456,
 					Utime:    234,
 					AuthorId: 789,
-					Status:   uint8(domain.ArticleStatusPublished),
+					Status:   domain.ArticleStatusPublished.ToUint8(),
 				}, art)
 			},
-			art: Article{
+			req: Article{
 				Id:      3,
 				Title:   "新的标题",
 				Content: "新的内容",
 			},
-			wantCode: http.StatusOK,
-			wantRes: Result[int64]{
+			wantCode: 200,
+			wantResult: Result[int64]{
 				Code: 5,
 				Msg:  "系统错误",
 			},
 		},
 	}
+
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			// 构造请求
-			// 执行
-			// 验证结果
 			tc.before(t)
-			reqBody, err := json.Marshal(tc.art)
+			data, err := json.Marshal(tc.req)
+			// 不能有 error
 			assert.NoError(t, err)
 			req, err := http.NewRequest(http.MethodPost,
-				"/articles/edit", bytes.NewBuffer(reqBody))
-			require.NoError(t, err)
-			// 数据是 JSON 格式
-			req.Header.Set("Content-Type", "application/json")
-			// 这里你就可以继续使用 req
+				"/articles/edit", bytes.NewReader(data))
+			assert.NoError(t, err)
+			req.Header.Set("Content-Type",
+				"application/json")
+			recorder := httptest.NewRecorder()
 
-			resp := httptest.NewRecorder()
-			// 这就是 HTTP 请求进去 GIN 框架的入口。
-			// 当你这样调用的时候，GIN 就会处理这个请求
-			// 响应写回到 resp 里
-			s.server.ServeHTTP(resp, req)
-
-			assert.Equal(t, tc.wantCode, resp.Code)
-			if resp.Code != 200 {
+			s.server.ServeHTTP(recorder, req)
+			code := recorder.Code
+			assert.Equal(t, tc.wantCode, code)
+			if code != http.StatusOK {
 				return
 			}
-			var webRes Result[int64]
-			err = json.NewDecoder(resp.Body).Decode(&webRes)
-			require.NoError(t, err)
-			assert.Equal(t, tc.wantRes, webRes)
+			// 反序列化为结果
+			// 利用泛型来限定结果必须是 int64
+			var result Result[int64]
+			err = json.Unmarshal(recorder.Body.Bytes(), &result)
+			assert.NoError(t, err)
+			assert.Equal(t, tc.wantResult, result)
 			tc.after(t)
 		})
 	}
 }
 
-func (s *ArticleTestSuite) TestPublish() {
+func (s *ArticleGORMHandlerTestSuite) TestArticle_Publish() {
 	t := s.T()
 
 	testCases := []struct {
@@ -247,38 +230,19 @@ func (s *ArticleTestSuite) TestPublish() {
 			after: func(t *testing.T) {
 				// 验证一下数据
 				var art article.Article
-				err := s.db.Where("author_id = ?", 123).First(&art).Error
-				assert.NoError(t, err)
-				// 确保已经生成了主键
-				assert.True(t, art.Id > 0)
+				s.db.Where("author_id = ?", 123).First(&art)
+				assert.Equal(t, "hello，你好", art.Title)
+				assert.Equal(t, "随便试试", art.Content)
+				assert.Equal(t, int64(123), art.AuthorId)
 				assert.True(t, art.Ctime > 0)
 				assert.True(t, art.Utime > 0)
-				art.Ctime = 0
-				art.Utime = 0
-				art.Id = 0
-				assert.Equal(t, article.Article{
-					Title:    "hello，你好",
-					Content:  "随便试试",
-					AuthorId: 123,
-					Status:   uint8(domain.ArticleStatusPublished),
-				}, art)
 				var publishedArt article.PublishedArticle
-				err = s.db.Where("author_id = ?", 123).First(&publishedArt).Error
-				assert.NoError(t, err)
-				assert.True(t, publishedArt.Id > 0)
+				s.db.Where("author_id = ?", 123).First(&publishedArt)
+				assert.Equal(t, "hello，你好", publishedArt.Title)
+				assert.Equal(t, "随便试试", publishedArt.Content)
+				assert.Equal(t, int64(123), publishedArt.AuthorId)
 				assert.True(t, publishedArt.Ctime > 0)
 				assert.True(t, publishedArt.Utime > 0)
-				publishedArt.Ctime = 0
-				publishedArt.Utime = 0
-				publishedArt.Id = 0
-				assert.Equal(t, article.PublishedArticle{
-					Article: article.Article{
-						Title:    "hello，你好",
-						Content:  "随便试试",
-						AuthorId: 123,
-						Status:   uint8(domain.ArticleStatusPublished),
-					},
-				}, publishedArt)
 			},
 			req: Article{
 				Title:   "hello，你好",
@@ -286,7 +250,6 @@ func (s *ArticleTestSuite) TestPublish() {
 			},
 			wantCode: 200,
 			wantResult: Result[int64]{
-				Msg:  "OK",
 				Data: 1,
 			},
 		},
@@ -295,49 +258,33 @@ func (s *ArticleTestSuite) TestPublish() {
 			name: "更新帖子并新发表",
 			before: func(t *testing.T) {
 				// 模拟已经存在的帖子
-				err := s.db.Create(&article.Article{
+				s.db.Create(&article.Article{
 					Id:       2,
 					Title:    "我的标题",
 					Content:  "我的内容",
 					Ctime:    456,
 					Utime:    234,
 					AuthorId: 123,
-					Status:   uint8(domain.ArticleStatusUnpublished),
-				}).Error
-				assert.NoError(t, err)
+				})
 			},
 			after: func(t *testing.T) {
 				// 验证一下数据
 				var art article.Article
 				s.db.Where("id = ?", 2).First(&art)
+				assert.Equal(t, "新的标题", art.Title)
+				assert.Equal(t, "新的内容", art.Content)
+				assert.Equal(t, int64(123), art.AuthorId)
+				// 创建时间没变
+				assert.Equal(t, int64(456), art.Ctime)
 				// 更新时间变了
 				assert.True(t, art.Utime > 234)
-				art.Utime = 0
-				// 创建时间没变
-				assert.Equal(t, article.Article{
-					Id:       2,
-					Ctime:    456,
-					Status:   uint8(domain.ArticleStatusPublished),
-					Content:  "新的内容",
-					Title:    "新的标题",
-					AuthorId: 123,
-				}, art)
-
 				var publishedArt article.PublishedArticle
 				s.db.Where("id = ?", 2).First(&publishedArt)
+				assert.Equal(t, "新的标题", art.Title)
+				assert.Equal(t, "新的内容", art.Content)
+				assert.Equal(t, int64(123), art.AuthorId)
 				assert.True(t, publishedArt.Ctime > 0)
 				assert.True(t, publishedArt.Utime > 0)
-				publishedArt.Ctime = 0
-				publishedArt.Utime = 0
-				assert.Equal(t, article.PublishedArticle{
-					Article: article.Article{
-						Id:       2,
-						Status:   uint8(domain.ArticleStatusPublished),
-						Content:  "新的内容",
-						Title:    "新的标题",
-						AuthorId: 123,
-					},
-				}, publishedArt)
 			},
 			req: Article{
 				Id:      2,
@@ -346,7 +293,6 @@ func (s *ArticleTestSuite) TestPublish() {
 			},
 			wantCode: 200,
 			wantResult: Result[int64]{
-				Msg:  "OK",
 				Data: 2,
 			},
 		},
@@ -360,49 +306,31 @@ func (s *ArticleTestSuite) TestPublish() {
 					Ctime:    456,
 					Utime:    234,
 					AuthorId: 123,
-					Status:   uint8(domain.ArticleStatusPublished),
 				}
-				err := s.db.Create(&art).Error
-				assert.NoError(t, err)
-				part := article.PublishedArticle{
-					Article: art,
-				}
-				err = s.db.Create(&part).Error
-				assert.NoError(t, err)
+				s.db.Create(&art)
+				part := article.PublishedArticle(art)
+				s.db.Create(&part)
 			},
 			after: func(t *testing.T) {
 				var art article.Article
-				err := s.db.Where("id = ?", 3).First(&art).Error
-				assert.NoError(t, err)
+				s.db.Where("id = ?", 3).First(&art)
+				assert.Equal(t, "新的标题", art.Title)
+				assert.Equal(t, "新的内容", art.Content)
+				assert.Equal(t, int64(123), art.AuthorId)
+				// 创建时间没变
+				assert.Equal(t, int64(456), art.Ctime)
 				// 更新时间变了
 				assert.True(t, art.Utime > 234)
-				art.Utime = 0
-				// 创建时间没变
-				assert.Equal(t, article.Article{
-					Id:       3,
-					Ctime:    456,
-					Status:   uint8(domain.ArticleStatusPublished),
-					Content:  "新的内容",
-					Title:    "新的标题",
-					AuthorId: 123,
-				}, art)
 
-				var publishedArt article.PublishedArticle
-				err = s.db.Where("id = ?", 3).First(&publishedArt).Error
-				assert.NoError(t, err)
-				assert.True(t, publishedArt.Ctime > 0)
-				assert.True(t, publishedArt.Utime > 0)
-				publishedArt.Ctime = 0
-				publishedArt.Utime = 0
-				assert.Equal(t, article.PublishedArticle{
-					Article: article.Article{
-						Id:       3,
-						Status:   uint8(domain.ArticleStatusPublished),
-						Content:  "新的内容",
-						Title:    "新的标题",
-						AuthorId: 123,
-					},
-				}, publishedArt)
+				var part article.PublishedArticle
+				s.db.Where("id = ?", 3).First(&part)
+				assert.Equal(t, "新的标题", part.Title)
+				assert.Equal(t, "新的内容", part.Content)
+				assert.Equal(t, int64(123), part.AuthorId)
+				// 创建时间没变
+				assert.Equal(t, int64(456), part.Ctime)
+				// 更新时间变了
+				assert.True(t, part.Utime > 234)
 			},
 			req: Article{
 				Id:      3,
@@ -411,7 +339,6 @@ func (s *ArticleTestSuite) TestPublish() {
 			},
 			wantCode: 200,
 			wantResult: Result[int64]{
-				Msg:  "OK",
 				Data: 3,
 			},
 		},
@@ -428,16 +355,14 @@ func (s *ArticleTestSuite) TestPublish() {
 					AuthorId: 789,
 				}
 				s.db.Create(&art)
-				part := article.PublishedArticle{
-					Article: article.Article{
-						Id:       4,
-						Title:    "我的标题",
-						Content:  "我的内容",
-						Ctime:    456,
-						Utime:    234,
-						AuthorId: 789,
-					},
-				}
+				part := article.PublishedArticle(article.Article{
+					Id:       4,
+					Title:    "我的标题",
+					Content:  "我的内容",
+					Ctime:    456,
+					Utime:    234,
+					AuthorId: 789,
+				})
 				s.db.Create(&part)
 			},
 			after: func(t *testing.T) {
@@ -504,12 +429,8 @@ func (s *ArticleTestSuite) TestPublish() {
 	}
 }
 
-func (s *ArticleTestSuite) TestABC() {
-	s.T().Log("hello, 这是测试套件")
-}
-
-func TestArticle(t *testing.T) {
-	suite.Run(t, &ArticleTestSuite{})
+func TestGORMArticle(t *testing.T) {
+	suite.Run(t, new(ArticleGORMHandlerTestSuite))
 }
 
 type Article struct {

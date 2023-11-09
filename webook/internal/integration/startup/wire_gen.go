@@ -38,8 +38,7 @@ func InitWebServer() *gin.Engine {
 	codeService := service.NewSMSCodeService(smsService, codeRepository)
 	userHandler := web.NewUserHandler(userService, codeService, handler)
 	wechatService := InitPhantomWechatService(loggerV1)
-	wechatHandlerConfig := InitWechatHandlerConfig()
-	oAuth2WechatHandler := web.NewOAuth2WechatHandler(wechatService, userService, handler, wechatHandlerConfig)
+	oAuth2WechatHandler := web.NewOAuth2WechatHandler(wechatService, userService, handler)
 	articleDAO := article.NewGORMArticleDAO(gormDB)
 	articleRepository := article2.NewArticleRepository(articleDAO)
 	articleService := service.NewArticleService(articleRepository)
@@ -48,10 +47,8 @@ func InitWebServer() *gin.Engine {
 	return engine
 }
 
-func InitArticleHandler() *web.ArticleHandler {
-	gormDB := InitTestDB()
-	articleDAO := article.NewGORMArticleDAO(gormDB)
-	articleRepository := article2.NewArticleRepository(articleDAO)
+func InitArticleHandler(dao2 article.ArticleDAO) *web.ArticleHandler {
+	articleRepository := article2.NewArticleRepository(dao2)
 	articleService := service.NewArticleService(articleRepository)
 	loggerV1 := InitLog()
 	articleHandler := web.NewArticleHandler(articleService, loggerV1)
@@ -80,3 +77,5 @@ func InitJwtHdl() jwt.Handler {
 var thirdProvider = wire.NewSet(InitRedis, InitTestDB, InitLog)
 
 var userSvcProvider = wire.NewSet(dao.NewGORMUserDAO, cache.NewRedisUserCache, repository.NewCachedUserRepository, service.NewUserService)
+
+var articlSvcProvider = wire.NewSet(article.NewGORMArticleDAO, article2.NewArticleRepository, service.NewArticleService)

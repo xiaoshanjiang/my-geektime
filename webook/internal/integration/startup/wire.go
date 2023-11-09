@@ -7,10 +7,10 @@ import (
 	"github.com/google/wire"
 
 	"github.com/xiaoshanjiang/my-geektime/webook/internal/repository"
-	"github.com/xiaoshanjiang/my-geektime/webook/internal/repository/article"
+	article2 "github.com/xiaoshanjiang/my-geektime/webook/internal/repository/article"
 	"github.com/xiaoshanjiang/my-geektime/webook/internal/repository/cache"
 	"github.com/xiaoshanjiang/my-geektime/webook/internal/repository/dao"
-	article2 "github.com/xiaoshanjiang/my-geektime/webook/internal/repository/dao/article"
+	"github.com/xiaoshanjiang/my-geektime/webook/internal/repository/dao/article"
 	"github.com/xiaoshanjiang/my-geektime/webook/internal/service"
 	"github.com/xiaoshanjiang/my-geektime/webook/internal/web"
 	ijwt "github.com/xiaoshanjiang/my-geektime/webook/internal/web/jwt"
@@ -24,19 +24,22 @@ var userSvcProvider = wire.NewSet(
 	repository.NewCachedUserRepository,
 	service.NewUserService,
 )
+var articlSvcProvider = wire.NewSet(
+	article.NewGORMArticleDAO,
+	article2.NewArticleRepository,
+	service.NewArticleService,
+)
 
 func InitWebServer() *gin.Engine {
 	wire.Build(
 		// 最基础的第三方依赖
 		thirdProvider,
 		userSvcProvider,
+		articlSvcProvider,
 		// Cache 部分
 		cache.NewRedisCodeCache,
-
-		article2.NewGORMArticleDAO,
 		// repository 部分
 		repository.NewCachedCodeRepository,
-		article.NewArticleRepository,
 		// service 部分
 		// 集成测试我们显式指定使用内存实现
 		ioc.InitSmsMemoryService,
@@ -44,12 +47,10 @@ func InitWebServer() *gin.Engine {
 		// 指定啥也不干的 wechat service
 		InitPhantomWechatService,
 		service.NewSMSCodeService,
-		service.NewArticleService,
 		// handler 部分
 		web.NewUserHandler,
 		web.NewOAuth2WechatHandler,
 		web.NewArticleHandler,
-		InitWechatHandlerConfig,
 		ijwt.NewRedisJWTHandler,
 
 		// gin 的中间件
@@ -62,14 +63,15 @@ func InitWebServer() *gin.Engine {
 	return gin.Default()
 }
 
-func InitArticleHandler() *web.ArticleHandler {
+func InitArticleHandler(dao article.ArticleDAO) *web.ArticleHandler {
 	wire.Build(thirdProvider,
-		article2.NewGORMArticleDAO,
+		//userSvcProvider,
+		//cache.NewRedisArticleCache,
+		//wire.InterfaceValue(new(article.ArticleDAO), dao),
+		article2.NewArticleRepository,
 		service.NewArticleService,
-		web.NewArticleHandler,
-		article.NewArticleRepository,
-	)
-	return &web.ArticleHandler{}
+		web.NewArticleHandler)
+	return new(web.ArticleHandler)
 }
 
 func InitUserSvc() service.UserService {

@@ -7,10 +7,10 @@ import (
 	"github.com/google/wire"
 
 	"github.com/xiaoshanjiang/my-geektime/webook/internal/repository"
-	"github.com/xiaoshanjiang/my-geektime/webook/internal/repository/article"
+	article2 "github.com/xiaoshanjiang/my-geektime/webook/internal/repository/article"
 	"github.com/xiaoshanjiang/my-geektime/webook/internal/repository/cache"
 	"github.com/xiaoshanjiang/my-geektime/webook/internal/repository/dao"
-	article2 "github.com/xiaoshanjiang/my-geektime/webook/internal/repository/dao/article"
+	"github.com/xiaoshanjiang/my-geektime/webook/internal/repository/dao/article"
 	"github.com/xiaoshanjiang/my-geektime/webook/internal/service"
 	"github.com/xiaoshanjiang/my-geektime/webook/internal/web"
 	ijwt "github.com/xiaoshanjiang/my-geektime/webook/internal/web/jwt"
@@ -25,15 +25,16 @@ func InitWebServer() *gin.Engine {
 
 		// DAO 部分
 		dao.NewGORMUserDAO,
-		article2.NewGORMArticleDAO,
+		article.NewGORMArticleDAO,
 
 		// Cache 部分
-		cache.NewRedisUserCache, cache.NewRedisCodeCache,
+		cache.NewRedisUserCache,
+		cache.NewRedisCodeCache,
 
 		// repository 部分
 		repository.NewCachedUserRepository,
 		repository.NewCachedCodeRepository,
-		article.NewArticleRepository,
+		article2.NewArticleRepository,
 
 		// service 部分
 		// ioc.InitSmsService,
@@ -49,7 +50,7 @@ func InitWebServer() *gin.Engine {
 		web.NewUserHandler,
 		web.NewArticleHandler,
 		web.NewOAuth2WechatHandler,
-		ioc.NewWechatHandlerConfig,
+		// ioc.NewWechatHandlerConfig,
 
 		// gin 的中间件
 		ioc.InitMiddlewares,

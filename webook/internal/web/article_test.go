@@ -50,7 +50,6 @@ func TestArticleHandler_Publish(t *testing.T) {
 			wantCode: 200,
 			wantRes: Result{
 				Data: float64(1),
-				Msg:  "OK",
 			},
 		},
 		{

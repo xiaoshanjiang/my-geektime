@@ -4,7 +4,6 @@ import (
 	"os"
 
 	"github.com/xiaoshanjiang/my-geektime/webook/internal/service/oauth2/wechat"
-	"github.com/xiaoshanjiang/my-geektime/webook/internal/web"
 	logger2 "github.com/xiaoshanjiang/my-geektime/webook/pkg/logger"
 )
 
@@ -24,8 +23,8 @@ func InitWechatService(l logger2.LoggerV1) wechat.Service {
 	return wechat.NewService(appId, appKey, l)
 }
 
-func NewWechatHandlerConfig() web.WechatHandlerConfig {
-	return web.WechatHandlerConfig{
-		Secure: false,
-	}
-}
+// func NewWechatHandlerConfig() web.WechatHandlerConfig {
+// 	return web.WechatHandlerConfig{
+// 		Secure: false,
+// 	}
+// }

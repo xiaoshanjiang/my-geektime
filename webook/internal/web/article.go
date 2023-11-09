@@ -61,7 +61,6 @@ func (h *ArticleHandler) Publish(ctx *gin.Context) {
 	}
 
 	ctx.JSON(http.StatusOK, Result{
-		Msg:  "OK",
 		Data: id,
 	})
 }
@@ -140,7 +139,6 @@ func (h *ArticleHandler) Edit(ctx *gin.Context) {
 		return
 	}
 	ctx.JSON(http.StatusOK, Result{
-		Msg:  "OK",
 		Data: id,
 	})
 }
