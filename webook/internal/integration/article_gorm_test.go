@@ -438,10 +438,3 @@ type Article struct {
 	Title   string `json:"title"`
 	Content string `json:"content"`
 }
-
-type Result[T any] struct {
-	// 这个叫做业务错误码
-	Code int    `json:"code"`
-	Msg  string `json:"msg"`
-	Data T      `json:"data"`
-}
