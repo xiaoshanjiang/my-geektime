@@ -1,5 +1,5 @@
-import React, { useEffect, useState } from 'react';
-import { Button, DatePicker, Form, Input } from 'antd';
+import React, {useEffect, useState} from 'react';
+import {Button, DatePicker, Form, Input} from 'antd';
 import axios from "@/axios/axios";
 import moment from 'moment';
 import router from "next/router";
@@ -12,7 +12,7 @@ const onFinish = (values: any) => {
     }
     axios.post("/users/edit", values)
         .then((res) => {
-            if (res.status != 200) {
+            if(res.status != 200) {
                 alert(res.statusText);
                 return
             }
@@ -22,8 +22,8 @@ const onFinish = (values: any) => {
             }
             alert(res.data?.msg || "系统错误");
         }).catch((err) => {
-            alert(err);
-        })
+        alert(err);
+    })
 };
 
 const onFinishFailed = (errorInfo: any) => {
@@ -31,7 +31,7 @@ const onFinishFailed = (errorInfo: any) => {
 };
 
 function EditForm() {
-    let p: Profile = { Email: "", Phone: "", Nickname: "", Birthday: "", AboutMe: "" }
+    const p: Profile = {} as Profile
     const [data, setData] = useState<Profile>(p)
     const [isLoading, setLoading] = useState(false)
 
@@ -73,14 +73,14 @@ function EditForm() {
             name="birthday"
         >
             <DatePicker format={"YYYY-MM-DD"}
-                placeholder={""} />
+                        placeholder={""}/>
         </Form.Item>
 
         <Form.Item
             label="关于我"
             name="aboutMe"
         >
-            <TextArea rows={4} />
+            <TextArea rows={4}/>
         </Form.Item>
 
         <Form.Item wrapperCol={{ offset: 8, span: 16 }}>

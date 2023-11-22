@@ -108,8 +108,8 @@ type User struct {
 	AboutMe sql.NullString `gorm:"type=varchar(1024)"`
 
 	// 微信的字段
-	WechatUnionID sql.NullString
-	WechatOpenID  sql.NullString `gorm:"unique"`
+	WechatUnionID sql.NullString `gorm:"type=varchar(1024)"`
+	WechatOpenID  sql.NullString `gorm:"type=varchar(1024);unique"`
 
 	// 创建时间
 	Ctime int64

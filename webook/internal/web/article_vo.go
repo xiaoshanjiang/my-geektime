@@ -3,6 +3,12 @@ package web
 import "github.com/xiaoshanjiang/my-geektime/webook/internal/domain"
 
 // VO view object，就是对标前端的
+type LikeReq struct {
+	Id int64 `json:"id"`
+	// 点赞和取消点赞，我都准备复用这个
+	Like bool `json:"like"`
+}
+
 type ArticleVO struct {
 	Id    int64  `json:"id"`
 	Title string `json:"title"`
