@@ -8,6 +8,8 @@ import (
 	"gorm.io/gorm/clause"
 )
 
+var ErrRecordNotFound = gorm.ErrRecordNotFound
+
 //go:generate mockgen -source=./interactive.go -package=daomocks -destination=mocks/interactive.mock.go InteractiveDAO
 type InteractiveDAO interface {
 	IncrReadCnt(ctx context.Context, biz string, bizId int64) error
@@ -44,14 +46,16 @@ func (dao *GORMInteractiveDAO) InsertCollectionBiz(ctx context.Context, cb UserC
 	cb.Utime = now
 	cb.Ctime = now
 	return dao.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		// 插入收藏项目
 		err := dao.db.WithContext(ctx).Create(&cb).Error
 		if err != nil {
 			return err
 		}
+		// 这边就是更新数量
 		return tx.Clauses(clause.OnConflict{
 			DoUpdates: clause.Assignments(map[string]any{
-				"like_cnt": gorm.Expr("`like_cnt`+1"),
-				"utime":    now,
+				"collect_cnt": gorm.Expr("`collect_cnt`+1"),
+				"utime":       now,
 			}),
 		}).Create(&Interactive{
 			CollectCnt: 1,
@@ -293,4 +297,17 @@ type UserCollectionBiz struct {
 	Uid   int64 `gorm:"uniqueIndex:biz_type_id_uid"`
 	Ctime int64
 	Utime int64
+}
+
+type CollectionItem struct {
+	Cid   int64
+	Cname string
+	BizId int64
+	Biz   string
+}
+
+func (dao *GORMInteractiveDAO) GetItems() ([]CollectionItem, error) {
+	var items []CollectionItem
+	err := dao.db.Raw("", 1, 2, 3).Find(&items).Error
+	return items, err
 }

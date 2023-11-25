@@ -8,6 +8,7 @@ import (
 
 	"github.com/ecodeclub/ekit/slice"
 	"github.com/gin-gonic/gin"
+	"golang.org/x/sync/errgroup"
 
 	"github.com/xiaoshanjiang/my-geektime/webook/internal/domain"
 	"github.com/xiaoshanjiang/my-geektime/webook/internal/service"
@@ -36,6 +37,12 @@ func NewArticleHandler(svc service.ArticleService,
 
 func (h *ArticleHandler) RegisterRoutes(server *gin.Engine) {
 	g := server.Group("/articles")
+	// 修改
+	//g.PUT("/")
+	// 新增
+	//g.POST("/")
+	// g.DELETE("/a_id")
+
 	g.POST("/edit", h.Edit)
 	g.POST("/withdraw", h.Withdraw)
 	g.POST("/publish", h.Publish)
@@ -61,9 +68,12 @@ func (h *ArticleHandler) RegisterRoutes(server *gin.Engine) {
 	})
 	// 点赞是这个接口，取消点赞也是这个接口
 	// RESTful 风格
-	//pub.POST("/like/:id", ginx.WrapBodyAndToken[LikeReq, ijwt.UserClaims](h.Like))
-	pub.POST("/like", ginx.WrapBodyAndToken[LikeReq, ijwt.UserClaims](h.Like))
-	//pub.POST("/cancel_like", ginx.WrapBodyAndToken[LikeReq, ijwt.UserClaims](h.Like))
+	//pub.POST("/like/:id", ginx.WrapBodyAndToken[LikeReq,
+	//	ijwt.UserClaims](h.Like))
+	pub.POST("/like", ginx.WrapBodyAndToken[LikeReq,
+		ijwt.UserClaims](h.Like))
+	//pub.POST("/cancel_like", ginx.WrapBodyAndToken[LikeReq,
+	//	ijwt.UserClaims](h.Like))
 }
 
 func (a *ArticleHandler) Like(ctx *gin.Context, req LikeReq, uc ijwt.UserClaims) (ginx.Result, error) {
@@ -94,13 +104,36 @@ func (a *ArticleHandler) PubDetail(ctx *gin.Context) {
 		a.l.Error("前端输入的 ID 不对", logger.Error(err))
 		return
 	}
-	art, err := a.svc.GetPublishedById(ctx, id)
+
+	var eg errgroup.Group
+	var art domain.Article
+	eg.Go(func() error {
+		art, err = a.svc.GetPublishedById(ctx, id)
+		return err
+	})
+
+	var intr domain.Interactive
+	eg.Go(func() error {
+		// 要在这里获得这篇文章的计数
+		uc := ctx.MustGet("users").(ijwt.UserClaims)
+		// 这个地方可以容忍错误
+		intr, err = a.intrSvc.Get(ctx, a.biz, id, uc.Id)
+		// 这种是容错的写法
+		//if err != nil {
+		//	// 记录日志
+		//}
+		//return nil
+		return err
+	})
+
+	// 在这儿等，要保证前面两个
+	err = eg.Wait()
 	if err != nil {
+		// 代表查询出错了
 		ctx.JSON(http.StatusOK, Result{
 			Code: 5,
 			Msg:  "系统错误",
 		})
-		a.l.Error("获得文章信息失败", logger.Error(err))
 		return
 	}
 
@@ -125,9 +158,14 @@ func (a *ArticleHandler) PubDetail(ctx *gin.Context) {
 			Status:  art.Status.ToUint8(),
 			Content: art.Content,
 			// 要把作者信息带出去
-			Author: art.Author.Name,
-			Ctime:  art.Ctime.Format(time.DateTime),
-			Utime:  art.Utime.Format(time.DateTime),
+			Author:     art.Author.Name,
+			Ctime:      art.Ctime.Format(time.DateTime),
+			Utime:      art.Utime.Format(time.DateTime),
+			Liked:      intr.Liked,
+			Collected:  intr.Collected,
+			LikeCnt:    intr.LikeCnt,
+			ReadCnt:    intr.ReadCnt,
+			CollectCnt: intr.CollectCnt,
 		},
 	})
 }
@@ -180,36 +218,6 @@ func (a *ArticleHandler) Detail(ctx *gin.Context, usr ijwt.UserClaims) (ginx.Res
 	}, nil
 }
 
-func (h *ArticleHandler) List(ctx *gin.Context, req ListReq, uc ijwt.UserClaims) (ginx.Result, error) {
-	res, err := h.svc.List(ctx, uc.Id, req.Offset, req.Limit)
-	if err != nil {
-		return ginx.Result{
-			Code: 5,
-			Msg:  "系统错误",
-		}, nil
-	}
-	// 在列表页，不显示全文，只显示一个"摘要"
-	// 比如说，简单的摘要就是前几句话
-	// 强大的摘要是 AI 帮你生成的
-	return ginx.Result{
-		Data: slice.Map[domain.Article, ArticleVO](res,
-			func(idx int, src domain.Article) ArticleVO {
-				return ArticleVO{
-					Id:       src.Id,
-					Title:    src.Title,
-					Abstract: src.Abstract(),
-					Status:   src.Status.ToUint8(),
-					// 这个列表请求，不需要返回内容
-					//Content: src.Content,
-					// 这个是创作者看自己的文章列表，也不需要这个字段
-					//Author: src.Author
-					Ctime: src.Ctime.Format(time.DateTime),
-					Utime: src.Utime.Format(time.DateTime),
-				}
-			}),
-	}, nil
-}
-
 func (h *ArticleHandler) Publish(ctx *gin.Context) {
 	var req ArticleReq
 	if err := ctx.Bind(&req); err != nil {
@@ -218,26 +226,26 @@ func (h *ArticleHandler) Publish(ctx *gin.Context) {
 	c := ctx.MustGet("claims")
 	claims, ok := c.(*ijwt.UserClaims)
 	if !ok {
+		// 你可以考虑监控住这里
+		//ctx.AbortWithStatus(http.StatusUnauthorized)
 		ctx.JSON(http.StatusOK, Result{
 			Code: 5,
 			Msg:  "系统错误",
 		})
-		h.l.Error("未发现用户的session信息")
+		h.l.Error("未发现用户的 session 信息")
 		return
 	}
 
 	id, err := h.svc.Publish(ctx, req.toDomain(claims.Id))
-
 	if err != nil {
 		ctx.JSON(http.StatusOK, Result{
 			Code: 5,
 			Msg:  "系统错误",
 		})
-		// 打日志
+		// 打日志？
 		h.l.Error("发表帖子失败", logger.Error(err))
 		return
 	}
-
 	ctx.JSON(http.StatusOK, Result{
 		Data: id,
 	})
@@ -303,20 +311,49 @@ func (h *ArticleHandler) Edit(ctx *gin.Context) {
 		h.l.Error("未发现用户的 session 信息")
 		return
 	}
-
 	// 检测输入，跳过这一步
-	// 调用svc代码
+	// 调用 svc 的代码
 	id, err := h.svc.Save(ctx, req.toDomain(claims.Id))
 	if err != nil {
 		ctx.JSON(http.StatusOK, Result{
 			Code: 5,
 			Msg:  "系统错误",
 		})
-		// 打日志
+		// 打日志？
 		h.l.Error("保存帖子失败", logger.Error(err))
 		return
 	}
 	ctx.JSON(http.StatusOK, Result{
 		Data: id,
 	})
+}
+
+func (h *ArticleHandler) List(ctx *gin.Context, req ListReq, uc ijwt.UserClaims) (ginx.Result, error) {
+	res, err := h.svc.List(ctx, uc.Id, req.Offset, req.Limit)
+	if err != nil {
+		return ginx.Result{
+			Code: 5,
+			Msg:  "系统错误",
+		}, nil
+	}
+	// 在列表页，不显示全文，只显示一个"摘要"
+	// 比如说，简单的摘要就是前几句话
+	// 强大的摘要是 AI 帮你生成的
+	return ginx.Result{
+		Data: slice.Map[domain.Article, ArticleVO](res,
+			func(idx int, src domain.Article) ArticleVO {
+				return ArticleVO{
+					Id:       src.Id,
+					Title:    src.Title,
+					Abstract: src.Abstract(),
+					Status:   src.Status.ToUint8(),
+					// 这个列表请求，不需要返回内容
+					//Content: src.Content,
+					// 这个是创作者看自己的文章列表，也不需要这个字段
+					//Author: src.Author
+					Ctime: src.Ctime.Format(time.DateTime),
+					Utime: src.Utime.Format(time.DateTime),
+				}
+			}),
+	}, nil
 }
