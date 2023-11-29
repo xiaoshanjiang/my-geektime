@@ -1,0 +1,150 @@
+package sarama
+
+import (
+	"context"
+	"log"
+	"testing"
+	"time"
+
+	"github.com/IBM/sarama"
+	"github.com/stretchr/testify/require"
+	"golang.org/x/sync/errgroup"
+)
+
+func TestConsumer(t *testing.T) {
+	cfg := sarama.NewConfig()
+	// 正常来说, 一个消费者都是归属于一个消费者组的
+	// 消费者组就是你的业务
+	consumer, err := sarama.NewConsumerGroup(addrs, "test_group", cfg)
+	require.NoError(t, err)
+
+	// 带超时的context
+	start := time.Now()
+	// ctx, cancel := context.WithTimeout(context.Background(), time.Second*10)
+	ctx, cancel := context.WithCancel(context.Background())
+	// defer cancel()
+	time.AfterFunc(time.Minute*10, func() {
+		cancel()
+	})
+	err = consumer.Consume(ctx, []string{"test_topic"}, testConsumerGroupHandler{})
+	// 你消费结束, 就会到这里
+	t.Log(err, time.Since(start).String())
+
+}
+
+type testConsumerGroupHandler struct {
+}
+
+func (t testConsumerGroupHandler) Setup(session sarama.ConsumerGroupSession) error {
+	// topic => 偏移量
+	partitions := session.Claims()["test_topic"]
+
+	for _, part := range partitions {
+		session.ResetOffset("test_topic", part, sarama.OffsetOldest, "")
+		// session.ResetOffset("test_topic", part, sarama.OffsetNewest, "")
+		// session.ResetOffset("test_topic", part, 123, "")
+	}
+
+	return nil
+}
+
+func (t testConsumerGroupHandler) Cleanup(session sarama.ConsumerGroupSession) error {
+	log.Println("CleanUP")
+	return nil
+}
+
+func (t testConsumerGroupHandler) ConsumeClaim(
+	// 代表的是你和Kafka的会话 (从建立连接到彻底断掉的一段时间)
+	session sarama.ConsumerGroupSession,
+	claim sarama.ConsumerGroupClaim) error {
+	msgs := claim.Messages()
+	// 这种写法的缺陷在于没有控制住goroutine的数量,
+	// 有可能msgs很多, 从而导致开了很多gouroutine
+	// for msg := range msgs {
+	// 	m1 := msg
+	// 	go func() {
+	// 		// 消费msg
+	// 		log.Println(string(m1.Value))
+	// 		session.MarkMessage(m1, "")
+	// 	}()
+	// }
+	const batchSize = 10
+	for {
+		ctx, cancel := context.WithTimeout(context.Background(), time.Second)
+		var eg errgroup.Group
+		var last *sarama.ConsumerMessage
+		done := false
+		for i := 0; i < batchSize && !done; i++ {
+			select {
+			case <-ctx.Done():
+				// 这边代表超时了
+				done = true
+			case msg, ok := <-msgs:
+				if !ok {
+					// 代表消费者被关闭了
+					cancel()
+					return nil
+				}
+				last = msg
+				eg.Go(func() error {
+					// 在这里消费
+					time.Sleep(time.Second)
+					// 在这里重试
+					log.Println(string(msg.Value))
+					return nil
+				})
+			}
+		}
+		cancel()
+		err := eg.Wait()
+		if err != nil {
+			// 这边能怎么办?
+			// 记录日志
+			continue
+		}
+		if last != nil {
+			session.MarkMessage(last, "")
+		}
+	}
+}
+
+func (t testConsumerGroupHandler) ConsumeClaimV1(
+	// 代表的是你和Kafka 的会话（从建立连接到连接彻底断掉的那一段时间）
+	session sarama.ConsumerGroupSession,
+	claim sarama.ConsumerGroupClaim) error {
+	msgs := claim.Messages()
+	for msg := range msgs {
+		//var bizMsg MyBizMsg
+		//err := json.Unmarshal(msg.Value, &bizMsg)
+		//if err != nil {
+		//	// 这就是消费消息出错
+		//	// 大多数时候就是重试
+		//	// 记录日志
+		//	continue
+		//}
+		log.Println(string(msg.Value))
+		session.MarkMessage(msg, "")
+	}
+	// 什么情况下会到这里
+	// msgs 被人关了，也就是要退出消费逻辑
+	return nil
+}
+
+type MyBizMsg struct {
+	Name string
+}
+
+// 返回只读的 channel
+func ChannelV1() <-chan struct{} {
+	panic("implement me")
+}
+
+// 返回可读可写 channel
+func ChannelV2() chan struct{} {
+	panic("implement me")
+}
+
+// 返回只写 channel
+func ChannelV3() chan<- struct{} {
+	panic("implement me")
+}

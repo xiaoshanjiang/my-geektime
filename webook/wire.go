@@ -3,37 +3,47 @@
 package main
 
 import (
-	"github.com/gin-gonic/gin"
 	"github.com/google/wire"
 
+	"github.com/xiaoshanjiang/my-geektime/webook/internal/events/article"
 	"github.com/xiaoshanjiang/my-geektime/webook/internal/repository"
 	article2 "github.com/xiaoshanjiang/my-geektime/webook/internal/repository/article"
 	"github.com/xiaoshanjiang/my-geektime/webook/internal/repository/cache"
 	"github.com/xiaoshanjiang/my-geektime/webook/internal/repository/dao"
-	"github.com/xiaoshanjiang/my-geektime/webook/internal/repository/dao/article"
+	article3 "github.com/xiaoshanjiang/my-geektime/webook/internal/repository/dao/article"
 	"github.com/xiaoshanjiang/my-geektime/webook/internal/service"
 	"github.com/xiaoshanjiang/my-geektime/webook/internal/web"
 	ijwt "github.com/xiaoshanjiang/my-geektime/webook/internal/web/jwt"
 	"github.com/xiaoshanjiang/my-geektime/webook/ioc"
 )
 
-func InitWebServer() *gin.Engine {
+func InitWebServer() *App {
 	wire.Build(
 		// 最基础的第三方依赖
 		ioc.InitDB, ioc.InitRedis,
 		ioc.InitLogger,
+		ioc.InitKafka,
+		ioc.NewConsumers,
+		ioc.NewSyncProducer,
+
+		// consumer
+		article.NewInteractiveReadEventConsumer,
+		article.NewKafkaProducer,
 
 		// DAO 部分
 		dao.NewGORMUserDAO,
-		article.NewGORMArticleDAO,
+		article3.NewGORMArticleDAO,
+		dao.NewGORMInteractiveDAO,
 
 		// Cache 部分
+		cache.NewRedisInteractiveCache,
 		cache.NewRedisUserCache,
 		cache.NewRedisCodeCache,
 
 		// repository 部分
 		repository.NewCachedUserRepository,
 		repository.NewCachedCodeRepository,
+		repository.NewCachedInteractiveRepository,
 		article2.NewArticleRepository,
 
 		// service 部分
@@ -57,7 +67,8 @@ func InitWebServer() *gin.Engine {
 
 		// Web 服务器
 		ioc.InitWebServer,
+		// 组装我这个结构体的所有字段
+		wire.Struct(new(App), "*"),
 	)
-	// 随便返回一个
-	return gin.Default()
+	return new(App)
 }

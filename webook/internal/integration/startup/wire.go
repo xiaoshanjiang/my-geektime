@@ -5,19 +5,25 @@ package startup
 import (
 	"github.com/gin-gonic/gin"
 	"github.com/google/wire"
-
+	"github.com/xiaoshanjiang/my-geektime/webook/internal/events/article"
 	"github.com/xiaoshanjiang/my-geektime/webook/internal/repository"
 	article2 "github.com/xiaoshanjiang/my-geektime/webook/internal/repository/article"
 	"github.com/xiaoshanjiang/my-geektime/webook/internal/repository/cache"
 	"github.com/xiaoshanjiang/my-geektime/webook/internal/repository/dao"
-	"github.com/xiaoshanjiang/my-geektime/webook/internal/repository/dao/article"
+	article3 "github.com/xiaoshanjiang/my-geektime/webook/internal/repository/dao/article"
 	"github.com/xiaoshanjiang/my-geektime/webook/internal/service"
 	"github.com/xiaoshanjiang/my-geektime/webook/internal/web"
 	ijwt "github.com/xiaoshanjiang/my-geektime/webook/internal/web/jwt"
 	"github.com/xiaoshanjiang/my-geektime/webook/ioc"
 )
 
-var thirdProvider = wire.NewSet(InitRedis, InitTestDB, InitLog)
+var thirdProvider = wire.NewSet(
+	ioc.InitRedis,
+	InitTestDB,
+	InitLog,
+	ioc.NewSyncProducer,
+	ioc.InitKafka,
+)
 var userSvcProvider = wire.NewSet(
 	dao.NewGORMUserDAO,
 	cache.NewRedisUserCache,
@@ -25,10 +31,13 @@ var userSvcProvider = wire.NewSet(
 	service.NewUserService,
 )
 var articlSvcProvider = wire.NewSet(
-	article.NewGORMArticleDAO,
+	article3.NewGORMArticleDAO,
+	article.NewKafkaProducer,
+	cache.NewRedisArticleCache,
 	article2.NewArticleRepository,
 	service.NewArticleService,
 )
+
 var interactiveSvcProvider = wire.NewSet(
 	service.NewInteractiveService,
 	repository.NewCachedInteractiveRepository,
@@ -42,10 +51,13 @@ func InitWebServer() *gin.Engine {
 		thirdProvider,
 		userSvcProvider,
 		articlSvcProvider,
+		// interactiveSvcProvider,
+
 		// Cache 部分
 		cache.NewRedisCodeCache,
 		// repository 部分
 		repository.NewCachedCodeRepository,
+
 		// service 部分
 		// 集成测试我们显式指定使用内存实现
 		ioc.InitSmsMemoryService,
@@ -53,6 +65,7 @@ func InitWebServer() *gin.Engine {
 		// 指定啥也不干的 wechat service
 		InitPhantomWechatService,
 		service.NewSMSCodeService,
+
 		// handler 部分
 		web.NewUserHandler,
 		web.NewOAuth2WechatHandler,
@@ -69,10 +82,9 @@ func InitWebServer() *gin.Engine {
 	return gin.Default()
 }
 
-func InitArticleHandler(dao article.ArticleDAO) *web.ArticleHandler {
+func InitArticleHandler(dao article3.ArticleDAO) *web.ArticleHandler {
 	wire.Build(thirdProvider,
-		//userSvcProvider,
-		//cache.NewRedisArticleCache,
+		article.NewKafkaProducer,
 		//wire.InterfaceValue(new(article.ArticleDAO), dao),
 		article2.NewArticleRepository,
 		service.NewArticleService,
